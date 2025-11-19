@@ -1,0 +1,49 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Client {
+  id            Int             @id @default(autoincrement())
+  name          String
+  email         String
+  phone         String
+  WeddingDate   DateTime
+  NeedGownBy    DateTime
+  Recommended   String
+  notes         String
+  measurements  Measurement[]
+  appointments  Appointment[]
+  createdAt     DateTime        @default(now())
+}
+
+model Measurement {
+  id        Int      @id @default(autoincrement())
+  clientId  Int
+  date      DateTime @default(now())
+  Bust      Float
+  waist     Float
+  Hips     Float
+  ShirtLength     Float
+  SkirtLength     Float
+  SleeveLength     Float
+  SleeveWidth     Float
+  ShoulderToBust   Float
+  notes     String?
+  client    Client   @relation(fields: [clientId], references: [id])
+}
+
+model Appointment {
+  id        Int      @id @default(autoincrement())
+  client    Client   @relation(fields: [clientId], references: [id])
+  clientId  Int
+  date      DateTime
+  time      DateTime
+  service   String
+  notes     String
+  createdAt DateTime @default(now())
+}
