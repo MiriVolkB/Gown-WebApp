@@ -5,9 +5,6 @@ import { prisma } from '@/lib/prisma';
 export async function GET() {
   try {
     const appointments = await prisma.appointment.findMany({
-      include: {
-        client: true, // return client info together
-      },
       orderBy: { date: 'asc' },
     });
 

@@ -5,7 +5,11 @@ import { prisma } from '@/lib/prisma';
 // GET all clients
 export async function GET() {
   try {
-    const clients = await prisma.client.findMany();
+    const clients = await prisma.client.findMany({
+      include: {
+        measurements: true,
+      },
+    });
     return NextResponse.json(clients);
   } catch (error) {
     return NextResponse.json({ error: 'Failed to fetch clients' }, { status: 500 });
