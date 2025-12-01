@@ -61,6 +61,9 @@ export function ClientsPage({
           >
             <div className="font-medium">{client.name}</div>
             <div className="text-sm text-muted-foreground">{client.phone}</div>
+            <div className="text-xs text-muted-foreground">
+              {client.measurements?.length ?? 0} measurements
+            </div>
           </button>
         ))}
       </div>
