@@ -137,7 +137,7 @@ export default function App() {
   );
 
   const selectedClient = selectedClientId
-    ? clients.find((c) => c.id === selectedClientId)
+    ? clients.find((c) => c.id === Number(selectedClientId))
     : undefined;
 
   const appointmentClient = selectedAppointment
