@@ -5,8 +5,9 @@ import { prisma } from '@/lib/prisma';
 export async function GET() {
   try {
     const appointments = await prisma.appointment.findMany({
-      orderBy: { date: 'asc' },
-    });
+      orderBy: { start: 'asc' },
+      include: { client: true, service: true },
+  });
 
     return NextResponse.json(appointments);
   } catch (error) {
