@@ -47,6 +47,7 @@ model Appointment {
   end             DateTime   // end date + time
   durationMinutes Int        // store actual duration, default from service but editable
   status          String     @default("SCHEDULED") 
+  date            DateTime
   notes           String?
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt

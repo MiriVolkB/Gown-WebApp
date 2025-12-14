@@ -1,86 +1,73 @@
-// src/components/CalendarView.tsx
 'use client';
 
-// ... (Your imports are fine, keep them) ...
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Calendar, dateFnsLocalizer, View, Views } from 'react-big-calendar';
 import { format, parse, startOfWeek, getDay } from 'date-fns';
 import { enUS } from 'date-fns/locale/en-US';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 
-// ... (Your localizer code is fine, keep it) ...
+// 1. SETUP LOCALIZER
 const locales = { 'en-US': enUS };
 const localizer = dateFnsLocalizer({ format, parse, startOfWeek, getDay, locales });
 
-// Custom Event Card
+// 2. THE "GOOGLE STYLE" EVENT COMPONENT
+// This turns the "grey stuff" into colored blocks
 const CustomEvent = ({ event }: any) => {
-  const { client, service } = event.resource;
+  const { client, service } = event.resource || {};
+  
+  // Use the service color, or default to a nice Google Blue if missing
+  const bgColor = service?.color || '#3b82f6'; 
+
   return (
-    <div className="h-full w-full bg-white border-l-4 rounded shadow-sm p-1 overflow-hidden text-xs leading-tight"
-         style={{ borderLeftColor: service?.color || '#cbd5e1' }}>
-      <div className="font-bold text-slate-800 truncate">{client?.name || 'Unknown'}</div>
-      <div className="text-slate-500 truncate">{service?.name || 'Service'}</div>
+    <div 
+      className="h-full w-full rounded-md shadow-sm px-2 py-1 overflow-hidden text-xs leading-tight hover:opacity-90 transition-opacity"
+      style={{ 
+        backgroundColor: bgColor, 
+        color: '#fff', // White text for contrast
+        borderLeft: '4px solid rgba(0,0,0,0.2)' // Subtle darker border on left
+      }}
+    >
+      <div className="font-bold truncate">{client?.name || 'Unknown Client'}</div>
+      <div className="opacity-90 truncate text-[10px]">{service?.name || 'Service'}</div>
     </div>
   );
 };
 
-// --- THIS IS THE PART TO CHANGE ---
+// 3. DEFINE PROPS
 interface CalendarProps {
-  onSlotClick?: (slotInfo: { start: Date; end: Date }) => void; // Add this!
+  events: any[]; // <--- We now accept events passed from the parent!
+  onSlotClick?: (slotInfo: { start: Date; end: Date }) => void;
 }
 
-export default function CalendarView({ onSlotClick }: CalendarProps) {
+export default function CalendarView({ events, onSlotClick }: CalendarProps) {
   const [view, setView] = useState<View>(Views.WEEK);
-  const [events, setEvents] = useState<any[]>([]);
 
-useEffect(() => {
-    async function fetchAppointments() {
-      try {
-        const res = await fetch('/api/appointments');
-        const data = await res.json();
-
-        // SAFETY CHECK: Is 'data' actually an array (list)?
-        if (!Array.isArray(data)) {
-            console.error("API Error: Expected an array but got:", data);
-            return; // Stop here so we don't crash
-        }
-        
-        // If it IS an array, proceed as normal
-        const calendarEvents = data.map((appt: any) => ({
-          id: appt.id,
-          title: appt.client?.name || "Unknown Client", // Safety fallback
-          start: new Date(appt.start),
-          end: new Date(appt.end),
-          resource: appt,
-        }));
-        setEvents(calendarEvents);
-      } catch (e) { 
-        console.error("Network Error:", e); 
-      }
-    }
-    fetchAppointments();
-  }, []);
-  
   return (
     <div className="h-[600px] bg-white p-4 rounded-xl shadow-sm border border-slate-200">
       <Calendar
         localizer={localizer}
-        events={events}
+        events={events} // Use the events passed down from CalendarPage
         startAccessor="start"
         endAccessor="end"
         view={view}
         onView={setView}
-        components={{ event: CustomEvent }}
+        components={{ 
+            event: CustomEvent // Use our new colored block component
+        }}
         
-        // --- ADD THESE LINES TO ENABLE CLICKING ---
-        selectable={true} 
+        selectable={true}
         onSelectSlot={(slotInfo) => {
             if (onSlotClick) onSlotClick(slotInfo);
         }}
-        // ----------------------------------------
         
+        // This removes the default ugly styling so our CustomEvent takes over
         eventPropGetter={() => ({
-            style: { backgroundColor: 'transparent', border: 'none', padding: 0 } 
+            style: { 
+                backgroundColor: 'transparent', 
+                border: 'none', 
+                padding: 0,
+                boxShadow: 'none'
+            } 
         })}
       />
     </div>

@@ -1,44 +1,86 @@
-import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+// src/app/api/appointments/route.ts
+import { NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
 
-// GET: Fetch all appointments
+// 1. GET: Load all appointments
 export async function GET() {
   try {
     const appointments = await prisma.appointment.findMany({
-      orderBy: { start: "asc" },
-      include: {
-        client: true,
-        service: true,
-      },
+      include: { 
+        service: true, 
+        client: true   
+      }
     });
+    
+    // Format the data so the Calendar understands it
+    const formattedEvents = appointments.map((app) => ({
+      id: app.id,
+      title: app.service.name, 
+      start: app.start,
+      end: app.end,
+      resource: app
+    }));
 
-    return NextResponse.json(appointments);
-  } catch (err) {
-    console.error("[GET /api/appointments]", err);
-    return NextResponse.json({ error: "Failed to fetch" }, { status: 500 });
+    return NextResponse.json(formattedEvents);
+  } catch (error) {
+    console.error("Failed to fetch appointments:", error);
+    return NextResponse.json({ error: "Failed to load" }, { status: 500 });
   }
 }
 
-// POST: Create appointment with Date Fix
-export async function POST(req: Request) {
+// 2. POST: Save a new appointment
+export async function POST(request: Request) {
   try {
-    const body = await req.json();
+    const body = await request.json();
+    const { title, clientId, date, time, duration, notes } = body;
 
+    // --- VALIDATION ---
+    if (!clientId) {
+      return NextResponse.json({ error: "Client is missing" }, { status: 400 });
+    }
+
+    // --- 1. Prepare Dates ---
+    const startDateTimeString = `${date}T${time}:00`;
+    const start = new Date(startDateTimeString);
+    const end = new Date(start.getTime() + duration * 60000);
+
+    // --- 2. Find or Create Service ---
+    let serviceRecord = await prisma.service.findFirst({
+      where: { name: title }
+    });
+
+    if (!serviceRecord) {
+      serviceRecord = await prisma.service.create({
+        data: {
+          name: title,
+          defaultDurationMin: duration,
+          active: true
+        }
+      });
+    }
+
+    // --- 3. Save Appointment ---
     const newAppointment = await prisma.appointment.create({
       data: {
-        clientId: body.clientId,
-        serviceId: body.serviceId,
-        start: new Date(body.start), // Convert String to Date
-        end: new Date(body.end),     // Convert String to Date
-        durationMinutes: body.durationMinutes,
-        notes: body.notes,
-        status: body.status || "SCHEDULED",
+        date: start,               // <--- ADDED THIS LINE TO FIX THE ERROR!
+        start: start,
+        end: end,
+        durationMinutes: duration,
+        notes: notes,
+        
+        client: { 
+            connect: { id: parseInt(clientId) } 
+        },
+
+        service: { 
+            connect: { id: serviceRecord.id } 
+        }
       },
     });
 
     return NextResponse.json(newAppointment);
-  } catch (err) {
-    console.error("[POST /api/appointments]", err);
+  } catch (error) {
+    console.error("Failed to save appointment:", error);
     return NextResponse.json({ error: "Failed to create" }, { status: 500 });
   }
 }
