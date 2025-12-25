@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react'; // Added useEffect
+import React, { useState, useEffect } from 'react';
 import CalendarView from '@/components/CalendarView';
 import AppointmentModal from '@/components/AppointmentModal';
 
@@ -8,34 +8,41 @@ export default function CalendarPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
-  
-  // 1. NEW STATE: Hold the list of appointments
-  const [appointments, setAppointments] = useState([]);
+  const [appointments, setAppointments] = useState<any[]>([]);
 
-  // 2. NEW EFFECT: Load appointments when the page opens
   useEffect(() => {
     fetch('/api/appointments')
       .then(res => res.json())
       .then(data => {
-        const formattedEvents = data.map((app: any) => {
-          // 1. Create Date objects
-          const startDate = new Date(app.start);
-          let endDate = new Date(app.end);
+        if (!Array.isArray(data)) return;
 
-          // 2. FORCE DURATION: If end time is invalid or same as start, add 1 hour
-          if (isNaN(endDate.getTime()) || endDate <= startDate) {
-            endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // Add 1 hour (60m * 60s * 1000ms)
+        // Map strictly according to your Prisma Schema
+        const formattedEvents = data.map((appt: any) => {
+          const startDate = new Date(appt.start);
+          let endDate = new Date(appt.end);
+
+          // Safety: If duration is 0 or invalid, force 30 mins
+          const duration = endDate.getTime() - startDate.getTime();
+          if (isNaN(duration) || duration <= 0) {
+             endDate = new Date(startDate.getTime() + 30 * 60000); 
           }
 
           return {
-            id: app.id,
-            // 3. TITLE: Combine Client Name + Service for the main label
-            title: `${app.client?.name || 'Client'} - ${app.service?.name || 'Service'}`, 
+            id: appt.id,
+            // Strict Schema Access: Client Name and Service Name
+            title: appt.client?.name || 'Unknown Client', 
             start: startDate,
-            end: endDate,
-            resource: app
+            end: endDate, 
+            resource: {
+                // Pass the whole object so we can access everything in the view
+                client: appt.client,
+                service: appt.service,
+                status: appt.status,
+                notes: appt.notes
+            }
           };
         });
+
         setAppointments(formattedEvents);
       })
       .catch(err => console.error("Failed to load calendar:", err));
@@ -72,14 +79,12 @@ export default function CalendarPage() {
   };
 
   return (
-    <div className="p-8 h-screen flex flex-col">
+    <div className="p-8 h-screen flex flex-col bg-zinc-50">
       <div className="mb-6">
           <h1 className="text-3xl font-serif text-slate-900">Calendar</h1>
-          <p className="text-slate-500 mt-1 text-sm">Click any time slot to book an appointment</p>
       </div>
 
       <div className="flex-1 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        {/* 3. PASS THE EVENTS TO THE CALENDAR */}
         <CalendarView 
           events={appointments} 
           onSlotClick={handleCalendarClick} 
