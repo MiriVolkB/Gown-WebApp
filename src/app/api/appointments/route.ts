@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
+// GET: Fetch all appointments
 export async function GET() {
   try {
     const appointments = await prisma.appointment.findMany({
@@ -13,64 +14,102 @@ export async function GET() {
     });
     return NextResponse.json(appointments);
   } catch (error) {
-    console.error("Database Error:", error);
     return NextResponse.json({ error: 'Error fetching appointments' }, { status: 500 });
   }
 }
 
+// POST: Create OR Update Appointment
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    
-    // 1. FIX CLIENT ID: Convert string "12" to number 12
-    const clientIdInt = parseInt(body.clientId);
-    if (isNaN(clientIdInt)) {
-        return NextResponse.json({ error: 'Invalid Client ID' }, { status: 400 });
+
+    // --- 1. HANDLE CLIENT ---
+    let finalClientId = body.clientId ? Number(body.clientId) : null;
+
+    // If we have no ID but we have a Name, try to find the existing client
+    if (!finalClientId && body.clientName) {
+        const existingClient = await prisma.client.findFirst({
+            where: { 
+                name: {
+                    equals: body.clientName,
+                    mode: 'insensitive' // Ignores case (finds "miri" even if "Miri")
+                }
+            }
+        });
+
+        if (existingClient) {
+            finalClientId = existingClient.id;
+        } else {
+            // SAFE CREATE: Only save the name, let the defaults handle the rest
+            // This prevents crashes from missing fields like 'NeedGownBy'
+            const newClient = await prisma.client.create({
+                data: { name: body.clientName }
+            });
+            finalClientId = newClient.id;
+        }
     }
 
-    // 2. FIX SERVICE: The frontend sends a name (body.title), but we need an ID.
-    // We will try to find a service with that name. If it doesn't exist, we CREATE it.
+    if (!finalClientId) {
+         return NextResponse.json({ error: 'Client is required' }, { status: 400 });
+    }
+
+    // --- 2. HANDLE SERVICE ---
     let service = await prisma.service.findFirst({
-        where: { name: body.title }
+        where: { name: body.serviceName } 
     });
 
-    // If the service (e.g. "First Fitting") doesn't exist yet, create it now!
     if (!service) {
         service = await prisma.service.create({
             data: {
-                name: body.title,
-                defaultDurationMin: body.duration || 30,
-                color: '#3b82f6' // Default blue
+                name: body.serviceName || 'Appointment',
+                defaultDurationMin: 30,
+                color: '#3b82f6'
             }
         });
     }
 
-    // 3. COMBINE DATE & TIME
-    // Frontend sends date="2025-12-25" and time="14:30"
-    // We need to combine them into a single DateTime object
-    const startDateTime = new Date(`${body.date}T${body.time}:00`);
-    
-    // Calculate End Time based on duration
-    const duration = body.duration || 60;
-    const endDateTime = new Date(startDateTime.getTime() + duration * 60000);
-
-    // 4. SAVE TO DATABASE
-    const newAppointment = await prisma.appointment.create({
-      data: {
-        start: startDateTime,
-        end: endDateTime,
-        clientId: clientIdInt,
-        serviceId: service.id, // Use the ID we found or created
-        date: startDateTime,   // Keep redundancy if your schema requires it
-        durationMinutes: duration,
+    // --- 3. PREPARE DATA ---
+    const appointmentData = {
+        start: new Date(body.start),
+        end: new Date(body.end),
+        clientId: finalClientId,
+        serviceId: service.id,
+        date: new Date(body.start),
+        durationMinutes: (new Date(body.end).getTime() - new Date(body.start).getTime()) / 60000,
         notes: body.notes,
         status: 'SCHEDULED'
-      },
-    });
+    };
 
-    return NextResponse.json(newAppointment);
+    // --- 4. SAVE ---
+    if (body.id) {
+        const updated = await prisma.appointment.update({
+            where: { id: Number(body.id) },
+            data: appointmentData
+        });
+        return NextResponse.json(updated);
+    } else {
+        const created = await prisma.appointment.create({
+            data: appointmentData
+        });
+        return NextResponse.json(created);
+    }
+
   } catch (error) {
-    console.error("Save Error:", error);
-    return NextResponse.json({ error: 'Error saving appointment' }, { status: 500 });
+    console.error("API Error:", error); // Check terminal for this if it fails again
+    return NextResponse.json({ error: 'Server Error' }, { status: 500 });
   }
+}
+
+// DELETE: Remove Appointment
+export async function DELETE(request: Request) {
+    try {
+        const { searchParams } = new URL(request.url);
+        const id = searchParams.get('id');
+        if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
+
+        await prisma.appointment.delete({ where: { id: Number(id) } });
+        return NextResponse.json({ success: true });
+    } catch (error) {
+        return NextResponse.json({ error: 'Error deleting' }, { status: 500 });
+    }
 }

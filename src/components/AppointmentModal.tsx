@@ -1,128 +1,230 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
-import { Calendar, dateFnsLocalizer, View, Views } from 'react-big-calendar';
-import { format, parse, startOfWeek, getDay } from 'date-fns';
-import { enUS } from 'date-fns/locale/en-US';
-import 'react-big-calendar/lib/css/react-big-calendar.css';
+import React, { useState, useEffect, useMemo } from 'react';
+import { X, Clock, Calendar as CalIcon, User, Scissors, ChevronDown } from 'lucide-react';
+import { format } from 'date-fns';
 
-const locales = { 'en-US': enUS };
-const localizer = dateFnsLocalizer({ format, parse, startOfWeek, getDay, locales });
+const SERVICE_OPTIONS = [
+  'First Appointment',
+  'First Fitting',
+  'Second Fitting',
+  'Pickup',
+  'Rental'
+];
 
-// --- 1. DISTINCT COLORS MAP ---
-// Updated with very different colors to avoid "shades of blue"
-const STATIC_COLORS: Record<string, string> = {
-  'consultation': '#9333ea',   // Vibrant Purple
-  'first fitting': '#ea580c',  // Deep Orange
-  'second fitting': '#db2777', // Pink/Magenta
-  'final fitting': '#16a34a',  // Green
-  'pickup': '#dc2626',         // Red
-  'alteration': '#0891b2',     // Teal
-  'wedding day': '#ca8a04',    // Gold
-};
-
-// --- 2. CUSTOM CONTENT (SHOWS CLIENT NAME) ---
-const CustomEventContent = ({ event }: any) => {
-  // Try to find the client name in a few different places to be safe
-  const clientName = event.resource?.client?.name || event.title || 'Client Name';
-  const serviceName = event.resource?.service?.name || '';
-
-  return (
-    <div className="h-full w-full px-1 py-0.5 overflow-hidden flex flex-col">
-      {/* Client Name: Bold and prominent */}
-      <div className="font-bold text-white text-xs leading-tight truncate">
-        {clientName}
-      </div>
-      
-      {/* Service Name: Smaller, underneath */}
-      {serviceName && (
-        <div className="text-white/90 text-[10px] leading-tight truncate mt-0.5">
-          {serviceName}
-        </div>
-      )}
-    </div>
-  );
-};
-
-interface CalendarProps {
-  events: any[];
-  onSlotClick?: (slotInfo: { start: Date; end: Date }) => void;
+interface AppointmentModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  selectedDate: Date | null;
+  selectedTime: string | null;
+  onSave: (data: any) => void;
+  initialData?: any; 
 }
 
-export default function CalendarView({ events, onSlotClick }: CalendarProps) {
-  const [view, setView] = useState<View>(Views.WEEK);
+export default function AppointmentModal({ isOpen, onClose, selectedDate, selectedTime, onSave, initialData }: AppointmentModalProps) {
+  const [clientName, setClientName] = useState('');
+  const [clientId, setClientId] = useState<number | null>(null);
+  const [serviceName, setServiceName] = useState(SERVICE_OPTIONS[0]);
+  const [date, setDate] = useState('');
+  const [time, setTime] = useState('');
+  const [duration, setDuration] = useState('30');
+  const [notes, setNotes] = useState('');
 
-  // Time: 8 AM to Midnight
-  const minTime = useMemo(() => {
-    const t = new Date();
-    t.setHours(8, 0, 0); 
-    return t;
+  const [clients, setClients] = useState<any[]>([]);
+  const [filteredClients, setFilteredClients] = useState<any[]>([]);
+  const [showClientList, setShowClientList] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/clients').then(res => res.json()).then(data => {
+        if (Array.isArray(data)) setClients(data);
+    }).catch(err => console.error(err));
   }, []);
 
-  const maxTime = useMemo(() => {
-    const t = new Date();
-    t.setHours(23, 59, 59); 
-    return t;
-  }, []);
-
-  // --- STYLE GETTER (HANDLES COLORS) ---
-  const eventStyleGetter = (event: any) => {
-    // Safely get service name, lowercased for matching
-    const serviceNameRaw = event.resource?.service?.name || event.title || '';
-    const serviceName = serviceNameRaw.toLowerCase().trim();
-    
-    // Logic: 
-    // 1. Check if the event object has a specific color assigned (backend)
-    // 2. Check our STATIC_COLORS map
-    // 3. Fallback to a standard Blue if nothing matches
-    const backgroundColor = 
-      event.resource?.service?.color || 
-      STATIC_COLORS[serviceName] || 
-      '#2563eb'; // Default Blue
-
-    return {
-      style: {
-        backgroundColor: backgroundColor,
-        color: 'white',
-        border: 'none',
-        borderRadius: '4px',
-        opacity: 0.9,
-        display: 'block'
+  useEffect(() => {
+    if (isOpen) {
+      if (initialData) {
+        setClientName(initialData.title || '');
+        setClientId(initialData.resource?.clientId || null);
+        
+        // Ensure service name matches one of our options or default to first
+        const currentService = initialData.resource?.service?.name;
+        if (SERVICE_OPTIONS.includes(currentService)) {
+            setServiceName(currentService);
+        } else {
+            setServiceName(SERVICE_OPTIONS[0]);
+        }
+        
+        const start = new Date(initialData.start);
+        setDate(format(start, 'yyyy-MM-dd'));
+        setTime(format(start, 'HH:mm'));
+        setNotes(initialData.resource?.notes || '');
+        
+        const end = new Date(initialData.end);
+        const diff = (end.getTime() - start.getTime()) / 60000;
+        setDuration(diff.toString());
+      } else {
+        setClientName('');
+        setClientId(null);
+        setServiceName(SERVICE_OPTIONS[0]);
+        if (selectedDate) setDate(format(selectedDate, 'yyyy-MM-dd'));
+        if (selectedTime) setTime(selectedTime);
+        setDuration('30');
+        setNotes('');
       }
-    };
+    }
+  }, [isOpen, selectedDate, selectedTime, initialData]);
+
+  const handleClientSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const term = e.target.value;
+    setClientName(term);
+    setClientId(null);
+    if (term.length > 0) {
+      const matches = clients.filter(c => c.name.toLowerCase().includes(term.toLowerCase()));
+      setFilteredClients(matches);
+      setShowClientList(true);
+    } else {
+      setShowClientList(false);
+    }
+  };
+
+  const selectClient = (client: any) => {
+    setClientName(client.name);
+    setClientId(client.id);
+    setShowClientList(false);
+  };
+
+  if (!isOpen) return null;
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!clientName || !date || !time) {
+        alert("Please fill in Client, Date, and Time");
+        return;
+    }
+
+    const startDateTime = new Date(`${date}T${time}`);
+    const endDateTime = new Date(startDateTime.getTime() + parseInt(duration) * 60000);
+
+    onSave({
+      id: initialData?.id,
+      clientName,
+      clientId,
+      serviceName,
+      start: startDateTime,
+      end: endDateTime,
+      notes
+    });
   };
 
   return (
-    // --- 3. HEIGHT FIX ---
-    // Changed to h-[1200px] to make the calendar physically taller.
-    // This creates "wider" slots and forces a scrollbar, preventing the "smashed" look.
-    <div className="h-[1200px] bg-white p-4 overflow-y-auto">
-      <Calendar
-        localizer={localizer}
-        events={events}
-        startAccessor="start"
-        endAccessor="end"
-        view={view}
-        onView={setView}
-        
-        min={minTime}
-        max={maxTime}
-        
-        views={['month', 'week', 'day']} 
-        
-        // Use our custom component to show Client Name
-        components={{ 
-            event: CustomEventContent 
-        }}
-        
-        // Apply our colors
-        eventPropGetter={eventStyleGetter}
-        
-        selectable={true}
-        onSelectSlot={(slotInfo) => {
-            if (onSlotClick) onSlotClick(slotInfo);
-        }}
-      />
+    <div className="p-6">
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-xl font-bold text-gray-900">{initialData ? 'Edit Appointment' : 'New Appointment'}</h2>
+        <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded-full"><X className="w-5 h-5 text-gray-500" /></button>
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="relative">
+          <label className="block text-sm font-medium text-gray-700 mb-1">Client</label>
+          <div className="relative">
+            <User className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+            <input 
+              type="text" 
+              placeholder="Search client..." 
+              className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+              value={clientName}
+              onChange={handleClientSearch}
+              onFocus={() => clientName && setShowClientList(true)}
+              onBlur={() => setTimeout(() => setShowClientList(false), 200)}
+            />
+          </div>
+          {showClientList && filteredClients.length > 0 && (
+            <div className="absolute z-50 w-full bg-white border border-gray-200 rounded-lg shadow-lg mt-1 max-h-40 overflow-y-auto">
+              {filteredClients.map(client => (
+                <div key={client.id} className="px-4 py-2 hover:bg-blue-50 cursor-pointer text-sm" onClick={() => selectClient(client)}>
+                  {client.name}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div>
+           <label className="block text-sm font-medium text-gray-700 mb-1">Service Type</label>
+           <div className="relative">
+             <Scissors className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+             <select 
+                className="w-full pl-9 pr-8 py-2 border border-gray-300 rounded-lg outline-none bg-white appearance-none"
+                value={serviceName}
+                onChange={(e) => setServiceName(e.target.value)}
+             >
+                {SERVICE_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+             </select>
+             <ChevronDown className="absolute right-3 top-3 w-4 h-4 text-gray-400 pointer-events-none" />
+           </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+            <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                <div className="relative">
+                    <CalIcon className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+                    <input 
+                        type="date" 
+                        className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg outline-none"
+                        value={date}
+                        onChange={(e) => setDate(e.target.value)}
+                    />
+                </div>
+            </div>
+            <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Time</label>
+                <div className="relative">
+                    <Clock className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+                    <input 
+                        type="time" 
+                        className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg outline-none"
+                        value={time}
+                        onChange={(e) => setTime(e.target.value)}
+                    />
+                </div>
+            </div>
+        </div>
+
+        <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Duration</label>
+            <select 
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none bg-white"
+                value={duration}
+                onChange={(e) => setDuration(e.target.value)}
+            >
+                <option value="15">15 Minutes</option>
+                <option value="30">30 Minutes</option>
+                <option value="45">45 Minutes</option>
+                <option value="60">1 Hour</option>
+                <option value="90">1.5 Hours</option>
+                <option value="120">2 Hours</option>
+            </select>
+        </div>
+
+        <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+            <textarea 
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none resize-none"
+                placeholder="Add details..."
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+            />
+        </div>
+
+        <div className="flex gap-3 pt-4">
+            <button type="button" onClick={onClose} className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium">Cancel</button>
+            <button type="submit" className="flex-1 px-4 py-2 bg-blue-900 text-white rounded-lg hover:bg-blue-800 font-medium shadow-sm">
+                {initialData ? 'Update' : 'Save'}
+            </button>
+        </div>
+      </form>
     </div>
   );
 }
