@@ -11,12 +11,11 @@ export default function CalendarPage() {
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [appointments, setAppointments] = useState<any[]>([]);
   
-  // Stores the appointment currently being viewed or edited
   const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
-  // Stores the data specifically for editing (to pass to modal)
   const [editingData, setEditingData] = useState<any | null>(null);
 
-  useEffect(() => {
+  // Load Data
+  const fetchAppointments = () => {
     fetch('/api/appointments')
       .then(res => res.json())
       .then(data => {
@@ -31,45 +30,77 @@ export default function CalendarPage() {
         setAppointments(formattedEvents);
       })
       .catch(err => console.error(err));
+  };
+
+  useEffect(() => {
+    fetchAppointments();
   }, []);
 
-  // 1. Create New (Click Empty Slot)
+  // --- NEW: Handle Drag & Drop API Save ---
+  const handleEventUpdate = async ({ event, start, end }: any) => {
+    // 1. Optimistic Update (Update UI immediately)
+    const updatedEvents = appointments.map((evt) => 
+      evt.id === event.id ? { ...evt, start, end } : evt
+    );
+    setAppointments(updatedEvents);
+
+    // 2. API Call to save to database
+    try {
+        const res = await fetch('/api/appointments', {
+            method: 'POST', // Using POST as our "Upsert/Update"
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                id: event.id,
+                start: start,
+                end: end,
+                clientId: event.resource.clientId,
+                serviceName: event.resource.service.name,
+                notes: event.resource.notes
+            }),
+        });
+
+        if (!res.ok) {
+            alert("Failed to move appointment");
+            fetchAppointments(); // Revert if failed
+        }
+    } catch (error) {
+        console.error("Move failed", error);
+        fetchAppointments(); // Revert
+    }
+  };
+  // ----------------------------------------
+
   const handleSlotClick = (slotInfo: { start: Date }) => {
     const date = slotInfo.start;
     setSelectedDate(date);
-    setSelectedTime(`${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`);
-    setEditingData(null); // Clear edit data
-    setSelectedEvent(null); // Close sidebar
+    // Format time as HH:mm
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    setSelectedTime(`${hours}:${minutes}`);
+    
+    setEditingData(null);
+    setSelectedEvent(null);
     setIsModalOpen(true);            
   };
 
-  // 2. View Details (Click Event)
   const handleEventClick = (event: any) => {
       setSelectedEvent(event);
       setIsModalOpen(false); 
   };
 
-  // 3. Edit Action
   const handleEditAppointment = (event: any) => {
-      setEditingData(event); // Pass existing data to modal
-      setSelectedEvent(null); // Close sidebar
-      setIsModalOpen(true);   // Open modal
+      setEditingData(event);
+      setSelectedEvent(null);
+      setIsModalOpen(true);   
   };
 
-  // 4. Delete Action
   const handleDeleteAppointment = async (id: number) => {
       await fetch(`/api/appointments?id=${id}`, { method: 'DELETE' });
       setAppointments(prev => prev.filter(a => a.id !== id));
       setSelectedEvent(null);
   };
 
-  // 5. Save Action (Create or Update)
   const handleSaveAppointment = async (data: any) => {
-    // Check if we are updating (has ID) or creating
-    const method = data.id ? 'PUT' : 'POST'; 
-    // Note: Ensure your API handles PUT. If not, use POST for both but handle ID on server.
-    // For now, let's assume your POST endpoint handles upsert or we just use POST.
-    
     const res = await fetch('/api/appointments', {
         method: 'POST', 
         headers: { 'Content-Type': 'application/json' },
@@ -78,7 +109,7 @@ export default function CalendarPage() {
 
     if (res.ok) {
         setIsModalOpen(false);
-        window.location.reload(); 
+        fetchAppointments(); // Reload data
     } else {
         alert("Failed to save.");
     }
@@ -86,9 +117,8 @@ export default function CalendarPage() {
 
   return (
     <div className="h-screen flex flex-col bg-slate-50 relative overflow-hidden">
-      {/* Header */}
       <div className="px-8 py-6 bg-white border-b border-slate-200">
-          <h1 className="text-3xl font-bold text-gray-900">Calendar</h1>
+          <h1 className="text-3xl font-bold text-[#0F172A]">Calendar</h1>
       </div>
 
       <div className="flex-1 overflow-hidden p-4">
@@ -97,12 +127,12 @@ export default function CalendarPage() {
             events={appointments} 
             onSlotClick={handleSlotClick} 
             onEventClick={handleEventClick}
-            setEvents={setAppointments} 
+            setEvents={setAppointments} // Local update
+            onEventUpdate={handleEventUpdate} // <--- Pass the API saver
           />
         </div>
       </div>
 
-      {/* Sidebar Details */}
       <AppointmentDetails 
         isOpen={!!selectedEvent}
         event={selectedEvent}
@@ -111,13 +141,9 @@ export default function CalendarPage() {
         onEdit={handleEditAppointment}
       />
 
-      {/* Modal - Centered, No Blur */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center">
-            {/* Invisible Backdrop (Click to close) */}
             <div className="absolute inset-0 bg-transparent" onClick={() => setIsModalOpen(false)} />
-            
-            {/* Modal Box */}
             <div className="relative bg-white rounded-xl shadow-2xl border border-gray-200 w-full max-w-md z-10">
                 <AppointmentModal 
                     isOpen={true} 
@@ -125,7 +151,7 @@ export default function CalendarPage() {
                     selectedDate={selectedDate}
                     selectedTime={selectedTime}
                     onSave={handleSaveAppointment} 
-                    initialData={editingData} // Pass data for editing
+                    initialData={editingData} 
                 />
             </div>
         </div>

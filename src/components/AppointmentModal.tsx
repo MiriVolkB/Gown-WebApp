@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { X, Clock, Calendar as CalIcon, User, Scissors, ChevronDown } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, ChevronDown } from 'lucide-react'; // Removed unused icons
 import { format } from 'date-fns';
 
 const SERVICE_OPTIONS = [
@@ -46,7 +46,6 @@ export default function AppointmentModal({ isOpen, onClose, selectedDate, select
         setClientName(initialData.title || '');
         setClientId(initialData.resource?.clientId || null);
         
-        // Ensure service name matches one of our options or default to first
         const currentService = initialData.resource?.service?.name;
         if (SERVICE_OPTIONS.includes(currentService)) {
             setServiceName(currentService);
@@ -126,18 +125,16 @@ export default function AppointmentModal({ isOpen, onClose, selectedDate, select
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="relative">
           <label className="block text-sm font-medium text-gray-700 mb-1">Client</label>
-          <div className="relative">
-            <User className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
-            <input 
-              type="text" 
-              placeholder="Search client..." 
-              className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-              value={clientName}
-              onChange={handleClientSearch}
-              onFocus={() => clientName && setShowClientList(true)}
-              onBlur={() => setTimeout(() => setShowClientList(false), 200)}
-            />
-          </div>
+          {/* Removed Icon, removed pl-9 */}
+          <input 
+            type="text" 
+            placeholder="Search client..." 
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+            value={clientName}
+            onChange={handleClientSearch}
+            onFocus={() => clientName && setShowClientList(true)}
+            onBlur={() => setTimeout(() => setShowClientList(false), 200)}
+          />
           {showClientList && filteredClients.length > 0 && (
             <div className="absolute z-50 w-full bg-white border border-gray-200 rounded-lg shadow-lg mt-1 max-h-40 overflow-y-auto">
               {filteredClients.map(client => (
@@ -152,9 +149,9 @@ export default function AppointmentModal({ isOpen, onClose, selectedDate, select
         <div>
            <label className="block text-sm font-medium text-gray-700 mb-1">Service Type</label>
            <div className="relative">
-             <Scissors className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+             {/* Removed Icon, removed pl-9 */}
              <select 
-                className="w-full pl-9 pr-8 py-2 border border-gray-300 rounded-lg outline-none bg-white appearance-none"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none bg-white appearance-none"
                 value={serviceName}
                 onChange={(e) => setServiceName(e.target.value)}
              >
@@ -167,27 +164,23 @@ export default function AppointmentModal({ isOpen, onClose, selectedDate, select
         <div className="grid grid-cols-2 gap-4">
             <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
-                <div className="relative">
-                    <CalIcon className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
-                    <input 
-                        type="date" 
-                        className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg outline-none"
-                        value={date}
-                        onChange={(e) => setDate(e.target.value)}
-                    />
-                </div>
+                {/* Removed Icon, removed pl-9 */}
+                <input 
+                    type="date" 
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none"
+                    value={date}
+                    onChange={(e) => setDate(e.target.value)}
+                />
             </div>
             <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Time</label>
-                <div className="relative">
-                    <Clock className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
-                    <input 
-                        type="time" 
-                        className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg outline-none"
-                        value={time}
-                        onChange={(e) => setTime(e.target.value)}
-                    />
-                </div>
+                {/* Removed Icon, removed pl-9 */}
+                <input 
+                    type="time" 
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none"
+                    value={time}
+                    onChange={(e) => setTime(e.target.value)}
+                />
             </div>
         </div>
 
