@@ -31,7 +31,9 @@ export interface Client {
   email: string;
   phone: string;
   WeddingDate: string; // ISO string
-  NeedGownBy: string; // ISO string
+  fabricType: string;
+  price: number; 
+  dueDate: Date; // This replaces the need for a complex OrderDetails object
   Recommended: string;
   notes: string;
   measurements?: Measurement[];

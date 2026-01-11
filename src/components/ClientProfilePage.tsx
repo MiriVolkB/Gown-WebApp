@@ -1,15 +1,20 @@
 "use client";
+import { useState } from "react";
 
 import { Button } from './ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Client, Appointment, Measurement } from '../types'; // Import Measurement
 import { ArrowLeft, Edit, Plus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { AddMeasurementModal } from "@/components/AddMeasurementModal";
+
 
 interface ClientProfilePageProps {
   client: Client;
   appointments: Appointment[];
-  
+  onBack?: () => void;
+  onNewAppointment?: () => void;
+
 }
 
 // Define the Deep Navy color value
@@ -57,7 +62,12 @@ const SingleMeasurementDisplay = ({ measurement }: { measurement: Measurement })
 export function ClientProfilePage({
   client,
   appointments,
+  onBack,
+  onNewAppointment,
+
 }: ClientProfilePageProps) {
+  const [isMeasurementOpen, setIsMeasurementOpen] = useState(false);
+  const [editingMeasurement, setEditingMeasurement] = useState<Measurement | null>(null);
   const router = useRouter();
   const clientAppointments = appointments.filter((apt) => apt.clientId === client.id);
   const handleEditClient = () => {
@@ -67,6 +77,31 @@ export function ClientProfilePage({
   const handleNewAppointment = () => {
     router.push(`/appointments/new?clientId=${client.id}`);
   };
+
+  const handleSaveField = async (field: keyof Measurement, value: number | string) => {
+  if (!editingMeasurement) return;
+
+  await fetch(`/api/measurements/${editingMeasurement.id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ [field]: Number(value) }),
+  });
+
+  router.refresh();
+};
+
+  const handleDeleteMeasurement = async (id: number) => {
+    if (!confirm("Are you sure you want to delete this measurement?")) return;
+
+    try {
+      await fetch(`/api/measurements/${id}`, { method: "DELETE" });
+      // Refresh measurements (or reload)
+      router.refresh(); // Next.js 13+ recommended
+    } catch (error) {
+      console.error("Failed to delete measurement", error);
+    }
+  };
+
   // Assuming the latest measurement is the first one in the array
   const latestMeasurement = client.measurements?.[0];
 
@@ -76,7 +111,13 @@ export function ClientProfilePage({
       <div className="max-w-7xl mx-auto">
 
         {/* Back Button */}
-        <Button variant="ghost" onClick={() => router.push('/clients')} className="mb-8 p-0" style={{ color: deepNavy }}>
+        <Button variant="ghost" onClick={() => {
+          if (onBack) {
+            onBack();
+          } else {
+            router.push('/clients');
+          }
+        }} className="mb-8 p-0" style={{ color: deepNavy }}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Clients
         </Button>
@@ -121,10 +162,10 @@ export function ClientProfilePage({
         {/* Tabs Navigation */}
         <Tabs defaultValue="information" className="w-full">
           <TabsList className="bg-white border border-gray-200 rounded-lg p-1 mb-6">
-            <TabsTrigger value="information" style={{ color: deepNavy }}>Information</TabsTrigger>
-            <TabsTrigger value="measurements" style={{ color: deepNavy }}>Measurements</TabsTrigger>
-            <TabsTrigger value="notes" style={{ color: deepNavy }}>Notes</TabsTrigger>
-            <TabsTrigger value="appointments" style={{ color: deepNavy }}>Appointments</TabsTrigger>
+            <TabsTrigger value="information">Information</TabsTrigger>
+            <TabsTrigger value="measurements">Measurements</TabsTrigger>
+            <TabsTrigger value="notes">Notes</TabsTrigger>
+            <TabsTrigger value="appointments">Appointments</TabsTrigger>
           </TabsList>
 
           {/* 1. INFORMATION Tab */}
@@ -153,21 +194,62 @@ export function ClientProfilePage({
             </div>
           </TabsContent>
 
-          {/* 2. MEASUREMENTS Tab (UPDATED to use your field names) */}
           <TabsContent value="measurements">
             <div className="bg-white border border-gray-200 rounded-xl p-8 shadow-sm">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-medium" style={{ color: deepNavy }}>Latest Measurements</h3>
-                <Button variant="outline" className="text-sm border-gray-300 hover:bg-gray-50">Add Measurement</Button>
+                <h3 className="text-xl font-medium" style={{ color: deepNavy }}>
+                  Measurements
+                </h3>
+                <Button
+                  variant="outline"
+                  className="text-sm border-gray-300 hover:bg-gray-50"
+                  onClick={() => setIsMeasurementOpen(true)}
+                >
+                  Add Measurement
+                </Button>
               </div>
 
-              {client.measurements && client.measurements.length > 0 && latestMeasurement ? (
-                <>
-                  <p className="text-gray-500 mb-6 text-sm">
-                    Recorded on: {new Date(latestMeasurement.date).toLocaleDateString()}
-                  </p>
-                  <SingleMeasurementDisplay measurement={latestMeasurement} />
-                </>
+              {/* Modals */}
+              {isMeasurementOpen && (
+                <AddMeasurementModal
+                  clientId={client.id}
+                  onClose={() => setIsMeasurementOpen(false)}
+                />
+              )}
+              {editingMeasurement && (
+                <AddMeasurementModal
+                  clientId={client.id}
+                  measurementToEdit={editingMeasurement}
+                  onClose={() => setEditingMeasurement(null)}
+                />
+              )}
+
+              {/* List all measurements */}
+              {client.measurements && client.measurements.length > 0 ? (
+                client.measurements.map((measurement) => (
+                  <div key={measurement.id} className="mb-6 border-b pb-4">
+                    <p className="text-gray-500 text-sm">
+                      Recorded on: {new Date(measurement.date).toLocaleDateString()}
+                    </p>
+                    <SingleMeasurementDisplay measurement={measurement} />
+                    <div className="flex gap-2 mt-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setEditingMeasurement(measurement)}
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => handleDeleteMeasurement(measurement.id)}
+                      >
+                        Delete
+                      </Button>
+                    </div>
+                  </div>
+                ))
               ) : (
                 <p className="text-gray-500">No measurement records available.</p>
               )}

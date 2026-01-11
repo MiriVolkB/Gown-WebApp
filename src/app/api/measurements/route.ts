@@ -1,39 +1,75 @@
-import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { measurementSchema } from "@/lib/validation/measurement";
+import { updateMeasurementSchema } from "@/lib/validation/measurement";
 
-// GET all measurements
-export async function GET() {
-  try {
-    const measurements = await prisma.measurement.findMany({
-      include: {
-        client: true, // optional: include client info
-      },
-      orderBy: { date: 'desc' },
-    });
 
-    return NextResponse.json(measurements);
-  } catch (error) {
-    return NextResponse.json(
-      { error: 'Failed to fetch measurements' },
-      { status: 500 }
-    );
-  }
-}
-
-// CREATE new measurement
 export async function POST(req: Request) {
   try {
-    const data = await req.json();
+    const json = await req.json();
+    const data = measurementSchema.parse(json); // 🔥 validation here
 
-    const newMeasurement = await prisma.measurement.create({
+    const measurement = await prisma.measurement.create({
       data,
     });
 
-    return NextResponse.json(newMeasurement);
-  } catch (error) {
+    return NextResponse.json(measurement);
+  } catch (error: any) {
+    if (error.name === "ZodError") {
+      return NextResponse.json(
+        { errors: error.errors },
+        { status: 400 }
+      );
+    }
+
     return NextResponse.json(
-      { error: 'Failed to create measurement' },
+      { error: "Failed to create measurement" },
       { status: 500 }
     );
   }
 }
+
+export async function PUT(req: Request) {
+  try {
+    const body = await req.json();
+
+const parsed = updateMeasurementSchema.safeParse(await req.json() as unknown);
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        {
+          error: "Validation failed",
+          fields: parsed.error.flatten().fieldErrors,
+        },
+        { status: 400 }
+      );
+    }
+
+    const { id, ...rest } = parsed.data;
+
+    const updated = await prisma.measurement.update({
+      where: { id },
+      data: rest,
+    });
+
+    return NextResponse.json(updated);
+  } catch {
+    return NextResponse.json(
+      { error: "Failed to update measurement" },
+      { status: 500 }
+    );
+  }
+}
+
+
+
+export async function DELETE(req: Request, { params }: { params: { id: string } }) {
+  try {
+    const id = Number(params.id);
+    await prisma.measurement.delete({ where: { id } });
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    return NextResponse.json({ error: "Failed to delete measurement" }, { status: 500 });
+  }
+}
+

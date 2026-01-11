@@ -1,5 +1,7 @@
+'use client';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation'; 
 import { ClientsPage } from '@/components/ClientsPage';
 import { Client } from '@/types';
 
@@ -13,6 +15,7 @@ const fetchClients = async (): Promise<Client[]> => {
 
 export default function ClientsPageRoute() {
   const [searchQuery, setSearchQuery] = useState('');
+  const router = useRouter();
 
   const { data: clients = [], isLoading, error } = useQuery({
     queryKey: ['clients'],
@@ -21,11 +24,12 @@ export default function ClientsPageRoute() {
 
   // handlers
   const handleClientClick = (clientId: string) => {
-    console.log('Clicked client', clientId);
+    //console.log('Button clicked! Client ID:', clientId);
+    router.push(`/clients/${clientId}`);
   };
 
   const handleNewClient = () => {
-    console.log('Add new client');
+    router.push('/clients/new'); // <-- navigate to new client page
   };
 
   if (isLoading) return <div>Loading clients...</div>;
