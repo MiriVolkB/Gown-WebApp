@@ -13,9 +13,11 @@ model Client {
   email         String?
   phone         String
   WeddingDate   DateTime?
-  NeedGownBy    DateTime
   Recommended   String?
-  notes         String
+  fabricType   String?
+  price        Float?    
+  dueDate      DateTime?  @map("needGownBy")
+  notes         String?
   measurements  Measurement[]
   appointments  Appointment[]
   createdAt     DateTime        @default(now())
