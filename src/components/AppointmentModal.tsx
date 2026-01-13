@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, ChevronDown } from 'lucide-react'; // Removed unused icons
+import { X, ChevronDown, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
+import { createAppointment } from '@/app/actions'; // Import the server action
 
 const SERVICE_OPTIONS = [
   'First Appointment',
@@ -17,11 +18,12 @@ interface AppointmentModalProps {
   onClose: () => void;
   selectedDate: Date | null;
   selectedTime: string | null;
-  onSave: (data: any) => void;
+  onSave: (data: any) => void; // We use this to tell the parent to refresh
   initialData?: any; 
 }
 
 export default function AppointmentModal({ isOpen, onClose, selectedDate, selectedTime, onSave, initialData }: AppointmentModalProps) {
+  // State
   const [clientName, setClientName] = useState('');
   const [clientId, setClientId] = useState<number | null>(null);
   const [serviceName, setServiceName] = useState(SERVICE_OPTIONS[0]);
@@ -29,17 +31,21 @@ export default function AppointmentModal({ isOpen, onClose, selectedDate, select
   const [time, setTime] = useState('');
   const [duration, setDuration] = useState('30');
   const [notes, setNotes] = useState('');
-
+  
+  // UI State
   const [clients, setClients] = useState<any[]>([]);
   const [filteredClients, setFilteredClients] = useState<any[]>([]);
   const [showClientList, setShowClientList] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
+  // Load Clients
   useEffect(() => {
     fetch('/api/clients').then(res => res.json()).then(data => {
         if (Array.isArray(data)) setClients(data);
     }).catch(err => console.error(err));
   }, []);
 
+  // Initialize Form
   useEffect(() => {
     if (isOpen) {
       if (initialData) {
@@ -47,11 +53,7 @@ export default function AppointmentModal({ isOpen, onClose, selectedDate, select
         setClientId(initialData.resource?.clientId || null);
         
         const currentService = initialData.resource?.service?.name;
-        if (SERVICE_OPTIONS.includes(currentService)) {
-            setServiceName(currentService);
-        } else {
-            setServiceName(SERVICE_OPTIONS[0]);
-        }
+        setServiceName(SERVICE_OPTIONS.includes(currentService) ? currentService : SERVICE_OPTIONS[0]);
         
         const start = new Date(initialData.start);
         setDate(format(start, 'yyyy-MM-dd'));
@@ -73,6 +75,7 @@ export default function AppointmentModal({ isOpen, onClose, selectedDate, select
     }
   }, [isOpen, selectedDate, selectedTime, initialData]);
 
+  // Client Search Logic
   const handleClientSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     const term = e.target.value;
     setClientName(term);
@@ -92,28 +95,47 @@ export default function AppointmentModal({ isOpen, onClose, selectedDate, select
     setShowClientList(false);
   };
 
-  if (!isOpen) return null;
-
-  const handleSubmit = (e: React.FormEvent) => {
+  // --- THE NEW SUBMIT LOGIC ---
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!clientName || !date || !time) {
-        alert("Please fill in Client, Date, and Time");
+    
+    if (!clientId) {
+        alert("Please select a client from the dropdown list.");
+        return;
+    }
+    if (!date || !time) {
+        alert("Please set a date and time.");
         return;
     }
 
-    const startDateTime = new Date(`${date}T${time}`);
-    const endDateTime = new Date(startDateTime.getTime() + parseInt(duration) * 60000);
+    setIsSaving(true);
 
-    onSave({
-      id: initialData?.id,
-      clientName,
-      clientId,
-      serviceName,
-      start: startDateTime,
-      end: endDateTime,
-      notes
-    });
+    // 1. Pack data into FormData for the Server Action
+    const formData = new FormData();
+    formData.append('clientId', clientId.toString());
+    formData.append('serviceName', serviceName);
+    formData.append('date', date);
+    formData.append('time', time);
+    formData.append('duration', duration);
+    formData.append('notes', notes);
+
+    // 2. Send to Server
+    const result = await createAppointment(formData);
+
+    setIsSaving(false);
+
+    if (result.success) {
+        // --- CRITICAL FIX HERE ---
+        // Tell the parent (CalendarPage) to refresh the data
+        if (onSave) onSave({}); 
+        
+        onClose(); 
+    } else {
+        alert(result.message);
+    }
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="p-6">
@@ -123,13 +145,13 @@ export default function AppointmentModal({ isOpen, onClose, selectedDate, select
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Client Search */}
         <div className="relative">
           <label className="block text-sm font-medium text-gray-700 mb-1">Client</label>
-          {/* Removed Icon, removed pl-9 */}
           <input 
             type="text" 
             placeholder="Search client..." 
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none ${clientId ? 'border-green-500 bg-green-50' : 'border-gray-300'}`}
             value={clientName}
             onChange={handleClientSearch}
             onFocus={() => clientName && setShowClientList(true)}
@@ -146,10 +168,10 @@ export default function AppointmentModal({ isOpen, onClose, selectedDate, select
           )}
         </div>
 
+        {/* Service Type */}
         <div>
            <label className="block text-sm font-medium text-gray-700 mb-1">Service Type</label>
            <div className="relative">
-             {/* Removed Icon, removed pl-9 */}
              <select 
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none bg-white appearance-none"
                 value={serviceName}
@@ -161,10 +183,10 @@ export default function AppointmentModal({ isOpen, onClose, selectedDate, select
            </div>
         </div>
 
+        {/* Date & Time */}
         <div className="grid grid-cols-2 gap-4">
             <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
-                {/* Removed Icon, removed pl-9 */}
                 <input 
                     type="date" 
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none"
@@ -174,7 +196,6 @@ export default function AppointmentModal({ isOpen, onClose, selectedDate, select
             </div>
             <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Time</label>
-                {/* Removed Icon, removed pl-9 */}
                 <input 
                     type="time" 
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none"
@@ -184,6 +205,7 @@ export default function AppointmentModal({ isOpen, onClose, selectedDate, select
             </div>
         </div>
 
+        {/* Duration */}
         <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Duration</label>
             <select 
@@ -200,6 +222,7 @@ export default function AppointmentModal({ isOpen, onClose, selectedDate, select
             </select>
         </div>
 
+        {/* Notes */}
         <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
             <textarea 
@@ -211,10 +234,15 @@ export default function AppointmentModal({ isOpen, onClose, selectedDate, select
             />
         </div>
 
+        {/* Action Buttons */}
         <div className="flex gap-3 pt-4">
             <button type="button" onClick={onClose} className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium">Cancel</button>
-            <button type="submit" className="flex-1 px-4 py-2 bg-blue-900 text-white rounded-lg hover:bg-blue-800 font-medium shadow-sm">
-                {initialData ? 'Update' : 'Save'}
+            <button 
+                type="submit" 
+                disabled={isSaving}
+                className="flex-1 flex justify-center items-center gap-2 px-4 py-2 bg-blue-900 text-white rounded-lg hover:bg-blue-800 font-medium shadow-sm disabled:opacity-50"
+            >
+                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : (initialData ? 'Update' : 'Book Appointment')}
             </button>
         </div>
       </form>

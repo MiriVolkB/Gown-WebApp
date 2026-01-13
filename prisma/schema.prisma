@@ -3,64 +3,73 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = "postgres://postgres.qpilhhrdijebwcpovabs:RachelliGowns25@aws-1-ap-southeast-2.pooler.supabase.com:6543/postgres?pgbouncer=true"
+  directUrl = "postgresql://postgres:RachelliGowns25@db.qpilhhrdijebwcpovabs.supabase.co:5432/postgres"
 }
 
 model Client {
-  id            Int             @id @default(autoincrement())
-  name          String
-  email         String?
-  phone         String
-  WeddingDate   DateTime?
-  Recommended   String?
+  id           Int           @id @default(autoincrement())
+  name         String
+  email        String?
+  phone        String
+  WeddingDate  DateTime?
+  Recommended  String?
+  notes        String?
+  createdAt    DateTime      @default(now())
   fabricType   String?
-  price        Float?    
-  dueDate      DateTime?  @map("needGownBy")
-  notes         String?
-  measurements  Measurement[]
-  appointments  Appointment[]
-  createdAt     DateTime        @default(now())
+  dueDate      DateTime?     @map("needGownBy")
+  price        Float?
+  appointments Appointment[]
+  measurements Measurement[]
 }
 
 model Measurement {
-  id        Int      @id @default(autoincrement())
-  clientId  Int
-  date      DateTime @default(now())
-  Bust      Float
-  waist     Float
-  Hips     Float
-  ShirtLength     Float
-  SkirtLength     Float
-  SleeveLength     Float
-  SleeveWidth     Float
-  ShoulderToBust   Float
-  notes     String?
-  client    Client   @relation(fields: [clientId], references: [id])
+  id             Int      @id @default(autoincrement())
+  clientId       Int
+  date           DateTime @default(now())
+  Bust           Float
+  waist          Float
+  Hips           Float
+  ShirtLength    Float
+  SkirtLength    Float
+  SleeveLength   Float
+  SleeveWidth    Float
+  ShoulderToBust Float
+  notes          String?
+  client         Client   @relation(fields: [clientId], references: [id])
 }
 
 model Appointment {
-  id              Int        @id @default(autoincrement())
+  id              Int      @id @default(autoincrement())
   clientId        Int
-  client          Client     @relation(fields: [clientId], references: [id])
-  serviceId       Int
-  service         Service    @relation(fields: [serviceId], references: [id])
-  start           DateTime   // start date + time
-  end             DateTime   // end date + time
-  durationMinutes Int        // store actual duration, default from service but editable
-  status          String     @default("SCHEDULED") 
-  date            DateTime
   notes           String?
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
+  createdAt       DateTime @default(now())
+  durationMinutes Int
+  end             DateTime
+  serviceId       Int
+  start           DateTime
+  status          String   @default("SCHEDULED")
+  updatedAt       DateTime @updatedAt
+  date            DateTime
+  client          Client   @relation(fields: [clientId], references: [id])
+  service         Service  @relation(fields: [serviceId], references: [id])
+  confirmationSent Boolean   @default(false) 
+  reminderSent     Boolean   @default(false)
 }
 
 model Service {
-  id                 Int             @id @default(autoincrement())
-  name               String          // "First fitting", "Second fitting", "Pickup"
-  defaultDurationMin Int             // 30, 45, 60, etc.
-  color              String?         // Optional: hex color for calendar
-  active             Boolean         @default(true)
-
+  id                 Int           @id @default(autoincrement())
+  name               String
+  defaultDurationMin Int
+  color              String?
+  active             Boolean       @default(true)
   appointments       Appointment[]
+}
+
+model business_settings {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id        String    @unique @db.Uuid
+  day_start_time DateTime? @default(dbgenerated("'09:00:00'::time without time zone")) @db.Time(6)
+  day_end_time   DateTime? @default(dbgenerated("'17:00:00'::time without time zone")) @db.Time(6)
 }

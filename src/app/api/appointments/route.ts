@@ -1,115 +1,100 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
+import { sendRescheduleEmail } from '@/lib/email'; // <--- This import was missing!
 
-const prisma = new PrismaClient();
-
-// GET: Fetch all appointments
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+
+    if (id) {
+      const appointment = await prisma.appointment.findUnique({
+        where: { id: parseInt(id) },
+        include: { client: true, service: true },
+      });
+      return NextResponse.json(appointment);
+    }
+
     const appointments = await prisma.appointment.findMany({
-      include: {
-        client: true,
-        service: true,
-      },
+      include: { client: true, service: true },
     });
+
     return NextResponse.json(appointments);
   } catch (error) {
-    return NextResponse.json({ error: 'Error fetching appointments' }, { status: 500 });
+    console.error('Error fetching appointments:', error);
+    return NextResponse.json({ error: 'Failed to fetch appointments' }, { status: 500 });
   }
 }
 
-// POST: Create OR Update Appointment
 export async function POST(request: Request) {
   try {
     const body = await request.json();
+    const { id, start, end, clientId, serviceName, notes, notify } = body;
 
-    // --- 1. HANDLE CLIENT ---
-    let finalClientId = body.clientId ? Number(body.clientId) : null;
-
-    // If we have no ID but we have a Name, try to find the existing client
-    if (!finalClientId && body.clientName) {
-        const existingClient = await prisma.client.findFirst({
-            where: { 
-                name: {
-                    equals: body.clientName,
-                    mode: 'insensitive' // Ignores case (finds "miri" even if "Miri")
-                }
-            }
-        });
-
-        if (existingClient) {
-            finalClientId = existingClient.id;
-        } else {
-            // SAFE CREATE: Only save the name, let the defaults handle the rest
-            // This prevents crashes from missing fields like 'NeedGownBy'
-            const newClient = await prisma.client.create({
-                data: { name: body.clientName }
-            });
-            finalClientId = newClient.id;
-        }
-    }
-
-    if (!finalClientId) {
-         return NextResponse.json({ error: 'Client is required' }, { status: 400 });
-    }
-
-    // --- 2. HANDLE SERVICE ---
-    let service = await prisma.service.findFirst({
-        where: { name: body.serviceName } 
+    // 1. Update (or Create) the Appointment in Database
+    const updatedAppointment = await prisma.appointment.upsert({
+      where: { id: id || 0 }, // If ID is 0/null, it creates new; otherwise updates
+      update: {
+        start: new Date(start),
+        end: new Date(end),
+        date: new Date(start), // Sync the 'date' column
+        notes,
+      },
+      create: {
+        clientId: parseInt(clientId),
+        serviceId: 1, // Default fallback
+        start: new Date(start),
+        end: new Date(end),
+        date: new Date(start),
+        durationMinutes: 30,
+        notes,
+        status: 'SCHEDULED'
+      },
+      include: {
+        client: true,   // Need client info for the email
+        service: true
+      }
     });
 
-    if (!service) {
-        service = await prisma.service.create({
-            data: {
-                name: body.serviceName || 'Appointment',
-                defaultDurationMin: 30,
-                color: '#3b82f6'
-            }
-        });
+    // 2. Send Email ONLY if the "Notify" box was checked
+    if (notify && updatedAppointment.client.email) {
+        
+        // Format date/time nicely for the email
+        const dateStr = new Date(start).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+        const timeStr = new Date(start).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+
+        await sendRescheduleEmail(
+            updatedAppointment.client.email,
+            updatedAppointment.client.name,
+            dateStr,
+            timeStr,
+            updatedAppointment.service.name
+        );
     }
 
-    // --- 3. PREPARE DATA ---
-    const appointmentData = {
-        start: new Date(body.start),
-        end: new Date(body.end),
-        clientId: finalClientId,
-        serviceId: service.id,
-        date: new Date(body.start),
-        durationMinutes: (new Date(body.end).getTime() - new Date(body.start).getTime()) / 60000,
-        notes: body.notes,
-        status: 'SCHEDULED'
-    };
-
-    // --- 4. SAVE ---
-    if (body.id) {
-        const updated = await prisma.appointment.update({
-            where: { id: Number(body.id) },
-            data: appointmentData
-        });
-        return NextResponse.json(updated);
-    } else {
-        const created = await prisma.appointment.create({
-            data: appointmentData
-        });
-        return NextResponse.json(created);
-    }
-
+    return NextResponse.json(updatedAppointment);
   } catch (error) {
-    console.error("API Error:", error); // Check terminal for this if it fails again
-    return NextResponse.json({ error: 'Server Error' }, { status: 500 });
+    console.error('Error saving appointment:', error);
+    return NextResponse.json({ error: 'Failed to save appointment' }, { status: 500 });
   }
 }
 
-// DELETE: Remove Appointment
 export async function DELETE(request: Request) {
-    try {
-        const { searchParams } = new URL(request.url);
-        const id = searchParams.get('id');
-        if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
 
-        await prisma.appointment.delete({ where: { id: Number(id) } });
-        return NextResponse.json({ success: true });
-    } catch (error) {
-        return NextResponse.json({ error: 'Error deleting' }, { status: 500 });
+    if (!id) {
+      return NextResponse.json({ error: 'ID is required' }, { status: 400 });
     }
+
+    await prisma.appointment.delete({
+      where: { id: parseInt(id) },
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting appointment:', error);
+    return NextResponse.json({ error: 'Failed to delete appointment' }, { status: 500 });
+  }
 }

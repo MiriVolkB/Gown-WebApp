@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import CalendarView from '../../components/MyCalendar';
 import AppointmentModal from '../../components/AppointmentModal';
 import AppointmentDetails from '../../components/AppointmentDetails';
+import MoveConfirmationModal from '../../components/MoveConfirmationModal'; // <--- Import New Modal
 
 export default function CalendarPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -14,7 +15,9 @@ export default function CalendarPage() {
   const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
   const [editingData, setEditingData] = useState<any | null>(null);
 
-  // Load Data
+  // --- NEW STATE for the Drag Modal ---
+  const [moveData, setMoveData] = useState<any | null>(null); 
+
   const fetchAppointments = () => {
     fetch('/api/appointments')
       .then(res => res.json())
@@ -36,18 +39,29 @@ export default function CalendarPage() {
     fetchAppointments();
   }, []);
 
-  // --- NEW: Handle Drag & Drop API Save ---
-  const handleEventUpdate = async ({ event, start, end }: any) => {
-    // 1. Optimistic Update (Update UI immediately)
+  // 1. When you drag, we JUST open the confirmation modal
+  const handleEventUpdate = ({ event, start, end }: any) => {
+    setMoveData({ event, start, end });
+  };
+
+  // 2. The user clicked "Confirm Move" in the modal
+  const handleConfirmMove = async (notifyClient: boolean) => {
+    if (!moveData) return;
+
+    const { event, start, end } = moveData;
+
+    // Optimistic Update
     const updatedEvents = appointments.map((evt) => 
       evt.id === event.id ? { ...evt, start, end } : evt
     );
     setAppointments(updatedEvents);
+    
+    // Close modal immediately
+    setMoveData(null); 
 
-    // 2. API Call to save to database
     try {
         const res = await fetch('/api/appointments', {
-            method: 'POST', // Using POST as our "Upsert/Update"
+            method: 'POST', 
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 id: event.id,
@@ -55,29 +69,28 @@ export default function CalendarPage() {
                 end: end,
                 clientId: event.resource.clientId,
                 serviceName: event.resource.service.name,
-                notes: event.resource.notes
+                notes: event.resource.notes,
+                notify: notifyClient // <--- Sending this to backend!
             }),
         });
 
         if (!res.ok) {
             alert("Failed to move appointment");
-            fetchAppointments(); // Revert if failed
+            fetchAppointments(); 
         }
     } catch (error) {
         console.error("Move failed", error);
-        fetchAppointments(); // Revert
+        fetchAppointments(); 
     }
   };
-  // ----------------------------------------
 
+  // Standard handlers...
   const handleSlotClick = (slotInfo: { start: Date }) => {
     const date = slotInfo.start;
     setSelectedDate(date);
-    // Format time as HH:mm
     const hours = date.getHours().toString().padStart(2, '0');
     const minutes = date.getMinutes().toString().padStart(2, '0');
     setSelectedTime(`${hours}:${minutes}`);
-    
     setEditingData(null);
     setSelectedEvent(null);
     setIsModalOpen(true);            
@@ -101,18 +114,8 @@ export default function CalendarPage() {
   };
 
   const handleSaveAppointment = async (data: any) => {
-    const res = await fetch('/api/appointments', {
-        method: 'POST', 
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-    });
-
-    if (res.ok) {
-        setIsModalOpen(false);
-        fetchAppointments(); // Reload data
-    } else {
-        alert("Failed to save.");
-    }
+    setIsModalOpen(false);
+    fetchAppointments(); 
   };
 
   return (
@@ -127,8 +130,8 @@ export default function CalendarPage() {
             events={appointments} 
             onSlotClick={handleSlotClick} 
             onEventClick={handleEventClick}
-            setEvents={setAppointments} // Local update
-            onEventUpdate={handleEventUpdate} // <--- Pass the API saver
+            setEvents={setAppointments} 
+            onEventUpdate={handleEventUpdate} 
           />
         </div>
       </div>
@@ -141,6 +144,7 @@ export default function CalendarPage() {
         onEdit={handleEditAppointment}
       />
 
+      {/* Appointment Creation Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center">
             <div className="absolute inset-0 bg-transparent" onClick={() => setIsModalOpen(false)} />
@@ -155,6 +159,21 @@ export default function CalendarPage() {
                 />
             </div>
         </div>
+      )}
+
+      {/* --- NEW: The Drag Confirmation Modal --- */}
+      {moveData && (
+        <MoveConfirmationModal 
+          isOpen={!!moveData}
+          event={moveData.event}
+          newStart={moveData.start}
+          newEnd={moveData.end}
+          onClose={() => {
+            setMoveData(null); // Cancel drag
+            fetchAppointments(); // Snap back visually
+          }}
+          onConfirm={handleConfirmMove}
+        />
       )}
     </div>
   );
