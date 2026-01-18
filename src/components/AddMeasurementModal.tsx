@@ -7,6 +7,7 @@ import { Textarea } from "./ui/textarea";
 import { measurementSchema } from "@/lib/validation/measurement";
 import { Measurement } from "../types"; 
 import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 import router from "next/dist/shared/lib/router/router";
 
 
@@ -17,7 +18,7 @@ interface Props {
   measurementToEdit?: Measurement | null;
 }
 
-export function AddMeasurementModal({ clientId, onClose }: Props) {
+export function AddMeasurementModal({ clientId, onClose, measurementToEdit }: Props) {
 const router = useRouter();
   const [errors, setErrors] = useState<Record<string, string>>({});  
   const [form, setForm] = useState({
@@ -31,6 +32,24 @@ const router = useRouter();
     ShoulderToBust: "",
     notes: "",
   });
+
+  useEffect(() => {
+    if (!measurementToEdit) return;
+
+    setForm({
+      Bust: String(measurementToEdit.Bust ?? ""),
+      waist: String(measurementToEdit.waist ?? ""),
+      Hips: String(measurementToEdit.Hips ?? ""),
+      ShirtLength: String(measurementToEdit.ShirtLength ?? ""),
+      SkirtLength: String(measurementToEdit.SkirtLength ?? ""),
+      SleeveLength: String(measurementToEdit.SleeveLength ?? ""),
+      SleeveWidth: String(measurementToEdit.SleeveWidth ?? ""),
+      ShoulderToBust: String(measurementToEdit.ShoulderToBust ?? ""),
+      notes: measurementToEdit.notes ?? "",
+    });
+  }, [measurementToEdit]);
+
+
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -64,6 +83,11 @@ const router = useRouter();
   return;
 }
 
+  const url = measurementToEdit
+    ? `/api/measurements/${measurementToEdit.id}`
+    : `/api/measurements`;
+
+  const method = measurementToEdit ? "PATCH" : "POST";
 
   await fetch("/api/measurements", {
     method: "POST",
@@ -80,7 +104,9 @@ const router = useRouter();
  return (
   <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
     <div className="bg-white rounded-xl p-6 w-full max-w-lg shadow-lg">
-      <h3 className="text-lg font-medium mb-4">Add Measurements</h3>
+      <h3 className="text-lg font-medium mb-4">
+        {measurementToEdit ? "Edit Measurements" : "Add Measurements"}
+      </h3>
 
       <div className="grid grid-cols-2 gap-4">
   <div>
@@ -194,7 +220,9 @@ const router = useRouter();
         <Button variant="ghost" onClick={onClose}>
           Cancel
         </Button>
-        <Button onClick={handleSubmit}>Save</Button>
+        <Button onClick={handleSubmit}>
+          {measurementToEdit ? "Save Changes" : "Save"}
+        </Button>
       </div>
     </div>
   </div>

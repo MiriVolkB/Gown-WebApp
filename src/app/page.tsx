@@ -24,17 +24,17 @@ const SERVICE_COLORS: Record<string, string> = {
 };
 
 // Logic Components (Headers/Dialogs - Update these to your real component paths)
-const Header = (props: any) => null; 
+const Header = (props: any) => null;
 const NewClientDialog = (props: any) => null;
 
 export default function HomePage() {
   const [currentPage, setCurrentPage] = useState('home');
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  
+
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
-  
+
   const queryClient = useQueryClient();
 
   // --- DATA FETCHING (Using React Query from Feature branch) ---
@@ -93,11 +93,11 @@ export default function HomePage() {
 
   return (
     <div className="flex-1 bg-[#F9FAFB] min-h-screen font-sans flex flex-col">
-      
+
       {/* 1. DASHBOARD VIEW (HEAD Design) */}
       {currentPage === 'home' && (
         <>
-          <div className="bg-gradient-to-b from-[#1E293B] to-[#0F172A] px-10 py-14 shadow-lg text-white border-b border-[#ffffff10]"> 
+          <div className="bg-gradient-to-b from-[#1E293B] to-[#0F172A] px-10 py-14 shadow-lg text-white border-b border-[#ffffff10]">
             <div className="max-w-6xl mx-auto flex flex-col md:flex-row md:items-end justify-between gap-8">
               <div>
                 <h1 className="text-[3.5rem] font-extralight tracking-tight leading-tight">
@@ -109,14 +109,14 @@ export default function HomePage() {
                 </div>
               </div>
               <div className="flex gap-4">
-                <button 
+                <button
                   onClick={() => setCurrentPage('clients')}
                   className="flex items-center gap-2 px-6 py-3 bg-[#ffffff15] text-white rounded-full hover:bg-[#ffffff25] transition-all font-medium text-sm backdrop-blur-md border border-[#ffffff20] shadow-sm"
                 >
                   <UserPlus className="w-4 h-4" />
                   Clients List
                 </button>
-                <button 
+                <button
                   onClick={() => setIsCreateOpen(true)}
                   className="flex items-center gap-2 px-6 py-3 bg-white text-[#0F172A] rounded-full hover:bg-gradient-to-r hover:from-white hover:to-blue-50 transition-all font-bold text-sm shadow"
                 >
@@ -146,8 +146,8 @@ export default function HomePage() {
                   {todaysAppointments.map((appt) => {
                     const serviceColor = SERVICE_COLORS[appt.service?.name] || '#0F172A';
                     return (
-                      <div 
-                        key={appt.id} 
+                      <div
+                        key={appt.id}
                         onClick={() => setSelectedEvent(appt)}
                         className="group bg-white rounded-xl shadow-sm border border-gray-100/80 overflow-hidden hover:shadow-md transition-all cursor-pointer flex items-stretch"
                       >
@@ -182,7 +182,7 @@ export default function HomePage() {
               setSelectedClientId(id.toString());
               setCurrentPage('client-profile');
             }}
-            onNewClient={() => {}} 
+            onNewClient={() => { }}
           />
         </main>
       )}
@@ -200,20 +200,20 @@ export default function HomePage() {
       )}
 
       {/* SHARED MODALS */}
-      <AppointmentDetails 
+      <AppointmentDetails
         isOpen={!!selectedEvent}
         event={selectedEvent}
         onClose={() => setSelectedEvent(null)}
         onDelete={handleDelete}
-        onEdit={() => {}}
+        onEdit={() => { }}
       />
 
-      <AppointmentModal 
-        isOpen={isCreateOpen} 
-  onClose={() => setIsCreateOpen(false)}
-  selectedDate={new Date()}
-  selectedTime="09:00" 
-  onSave={(data) => addAppointmentMutation.mutate(data)}
+      <AppointmentModal
+        isOpen={isCreateOpen}
+        onClose={() => setIsCreateOpen(false)}
+        selectedDate={new Date()}
+        selectedTime="09:00"
+        onSave={(data) => addAppointmentMutation.mutate(data)}
       />
     </div>
   );

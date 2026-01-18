@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -33,6 +34,7 @@ const newClientSchema = z.object({
 type NewClientFormData = z.infer<typeof newClientSchema>;
 
 export default function NewClientPage() {
+  const router = useRouter();
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -71,6 +73,7 @@ export default function NewClientPage() {
 
       setSubmitted(true);
       form.reset();
+      router.push("/clients");
     } catch (err) {
       console.error(err);
       alert("Error creating client");
@@ -200,9 +203,19 @@ export default function NewClientPage() {
               />
 
               {/* Submit */}
-              <Button type="submit" disabled={loading}>
-                {loading ? "Creating..." : "Create Client"}
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => router.push("/clients")}
+                >
+                  Cancel
+                </Button>
+
+                <Button type="submit" disabled={loading}>
+                  {loading ? "Creating..." : "Create Client"}
+                </Button>
+              </div>
             </form>
           </Form>
         </CardContent>

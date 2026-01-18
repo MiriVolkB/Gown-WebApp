@@ -7,6 +7,8 @@ import { Client, Appointment, Measurement } from '../types'; // Import Measureme
 import { ArrowLeft, Edit, Plus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { AddMeasurementModal } from "@/components/AddMeasurementModal";
+import { EditClientModal } from "@/components/EditClientModal";
+
 
 
 interface ClientProfilePageProps {
@@ -68,6 +70,7 @@ export function ClientProfilePage({
 }: ClientProfilePageProps) {
   const [isMeasurementOpen, setIsMeasurementOpen] = useState(false);
   const [editingMeasurement, setEditingMeasurement] = useState<Measurement | null>(null);
+  const [isEditOpen, setIsEditOpen] = useState(false);
   const router = useRouter();
   const clientAppointments = appointments.filter((apt) => apt.clientId === client.id);
   const handleEditClient = () => {
@@ -79,16 +82,16 @@ export function ClientProfilePage({
   };
 
   const handleSaveField = async (field: keyof Measurement, value: number | string) => {
-  if (!editingMeasurement) return;
+    if (!editingMeasurement) return;
 
-  await fetch(`/api/measurements/${editingMeasurement.id}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ [field]: Number(value) }),
-  });
+    await fetch(`/api/measurements/${editingMeasurement.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ [field]: Number(value) }),
+    });
 
-  router.refresh();
-};
+    router.refresh();
+  };
 
   const handleDeleteMeasurement = async (id: number) => {
     if (!confirm("Are you sure you want to delete this measurement?")) return;
@@ -139,7 +142,7 @@ export function ClientProfilePage({
               {/* Edit Button - Styled to match the theme (outline) */}
               <Button
                 variant="outline"
-                onClick={handleEditClient}
+                onClick={() => setIsEditOpen(true)}
                 className="text-sm border-gray-300 hover:bg-gray-50"
                 style={{ color: deepNavy }}
               >
@@ -158,6 +161,15 @@ export function ClientProfilePage({
             </div>
           </div>
         </div>
+
+        {isEditOpen && (
+          <EditClientModal
+            client={client}
+            onClose={() => setIsEditOpen(false)}
+            onSave={() => router.refresh()} // refresh the page to show updated info
+          />
+        )}
+
 
         {/* Tabs Navigation */}
         <Tabs defaultValue="information" className="w-full">
@@ -182,11 +194,11 @@ export function ClientProfilePage({
                 {/* Order/Project Details */}
                 <DetailItem
                   label="Due Date"
-                  value={client.dueDate ? new Date(client.dueDate).toLocaleDateString() : 'N/A'}
+                  value={client.dueDate ? new Date(client.dueDate).toLocaleDateString("en-GB") : 'N/A'}
                 />
                 <DetailItem
                   label="Wedding Date"
-                  value={client.WeddingDate ? new Date(client.WeddingDate).toLocaleDateString() : 'N/A'}
+                  value={client.WeddingDate ? new Date(client.WeddingDate).toLocaleDateString("en-GB") : 'N/A'}
                 />
                 <DetailItem label="Fabric Type" value={client.fabricType} />
                 <DetailItem label="Quoted Price" value={`$${client.price?.toLocaleString() || '0.00'}`} />
@@ -229,7 +241,7 @@ export function ClientProfilePage({
                 client.measurements.map((measurement) => (
                   <div key={measurement.id} className="mb-6 border-b pb-4">
                     <p className="text-gray-500 text-sm">
-                      Recorded on: {new Date(measurement.date).toLocaleDateString()}
+                      Recorded on: {new Date(measurement.date).toLocaleDateString("en-GB")}
                     </p>
                     <SingleMeasurementDisplay measurement={measurement} />
                     <div className="flex gap-2 mt-2">

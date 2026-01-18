@@ -1,0 +1,15 @@
+* [33m3eeb078[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mfeature/Client-Module[m[33m, [m[1;31morigin/feature/Client-Module[m[33m, [m[1;32mmaster[m[33m)[m Fix merge leftovers and stabilize React 19 setup
+*   [33mb21aaaf[m[33m ([m[1;31morigin/feature/appointments-calendar[m[33m, [m[1;32mfeature/appointments-calendar[m[33m)[m Merge feature/Client-Module into appointments-calendar: resolved conflicts and added new files
+[32m|[m[33m\[m  
+[32m|[m * [33m1176216[m Final project changes
+[32m|[m * [33m93eaaf3[m Basic clients profile page
+[32m|[m *   [33mcfad122[m merging schema and api - appointments from main
+[32m|[m [34m|[m[35m\[m  
+* [34m|[m [35m|[m [33m8a9913a[m[33m ([m[1;32mmy-appointments-calendar[m[33m)[m feat: redesign home page with navy theme, fix month view layout
+* [34m|[m [35m|[m [33m588b892[m feat: fix calendar api, visuals and add client search
+* [34m|[m [35m|[m [33m82fbf92[m WIP: Added hydration fix, distinct calendar colors, and client names. Layout needs fixing.
+* [34m|[m [35m|[m [33mfd6f6e4[m Work in progress: Calendar setup and basic view
+* [34m|[m [35m|[m   [33m8dfe3a9[m Fixed database connection, added sidebar layout, and connected calendar modal
+[36m|[m[35m\[m [34m\[m [35m\[m  
+[36m|[m [35m|[m [34m|[m[35m/[m  
+[36m|[m [35m|[m[35m/[m[34m|[m   
