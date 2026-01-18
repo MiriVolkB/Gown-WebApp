@@ -11,7 +11,7 @@ const newClientSchema = z.object({
   notes: z.string().optional(),
   Recommended: z.string().optional(),
   WeddingDate: z.string().optional(),
-  dueDate: z.string().min(1, "Need Gown By date is required"),
+  dueDate: z.string().optional(),
 });
 
 // --- GET all clients ---
@@ -59,7 +59,9 @@ export async function POST(req: Request) {
         WeddingDate: validatedData.WeddingDate
           ? new Date(validatedData.WeddingDate)
           : null,
-        dueDate: new Date(validatedData.dueDate),
+        dueDate: validatedData.dueDate
+          ? new Date(validatedData.dueDate)
+          : null,
       },
     });
 

@@ -150,7 +150,7 @@ export default function NewClientPage() {
                   <FormItem>
                     <FormLabel>Wedding Date</FormLabel>
                     <FormControl>
-                      <Input type="date" {...field} />
+                      <Input type="date"  placeholder="Optional" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -165,7 +165,7 @@ export default function NewClientPage() {
                   <FormItem>
                     <FormLabel>Need Gown By</FormLabel>
                     <FormControl>
-                      <Input type="date" {...field} />
+                      <Input type="date"  placeholder="Optional" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
