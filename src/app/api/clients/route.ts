@@ -1,77 +1,74 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { CreateClientSchema } from "@/lib/validation/client.schema";
 
-import { z, ZodError } from "zod";
-
-// --- Zod schema (matches your form) ---
-const newClientSchema = z.object({
-  name: z.string().min(2, "Name is required"),
-  phone: z.string().optional(),
-  email: z.string().email("Invalid email format").optional().or(z.literal('')),
-  notes: z.string().optional(),
-  Recommended: z.string().optional(),
-  WeddingDate: z.string().optional(),
-  dueDate: z.string().optional(),
-});
-
-// --- GET all clients ---
+// --- GET all families ---
 export async function GET() {
   try {
     const clients = await prisma.client.findMany({
-      include: { measurements: true },
+      include: {
+        projects: {
+          include: {
+            expenses: true, // Needed for total price breakdown later
+          }
+        },
+        payments: true
+      },
+      orderBy: { createdAt: 'desc' }
     });
     return NextResponse.json(clients);
   } catch (error) {
-    console.error(error);
-    return NextResponse.json(
-      { error: "Failed to fetch clients" },
-      { status: 500 }
-    );
+    console.error("Fetch Error:", error);
+    return NextResponse.json({ error: "Failed to fetch" }, { status: 500 });
   }
 }
 
-// --- CREATE new client ---
+// --- CREATE new family folder and initial gown ---
 export async function POST(req: Request) {
   try {
     const data = await req.json();
 
-    const parsed = newClientSchema.safeParse(data);
+    // 1. Use the specific schema we updated
+    const parsed = CreateClientSchema.safeParse(data);
 
     if (!parsed.success) {
-      return NextResponse.json(
-        {
-          error: "Validation failed",
-          details: parsed.error.issues,
-        },
-        { status: 400 }
-      );
+      return NextResponse.json({
+        error: "Validation failed",
+        details: parsed.error.format()
+      }, { status: 400 });
     }
 
-    const validatedData = parsed.data;
+    const val = parsed.data;
 
+    // 2. Create the data structure
     const newClient = await prisma.client.create({
       data: {
-        name: validatedData.name,
-        phone: validatedData.phone ?? "",
-        email: validatedData.email ?? null,
-        notes: validatedData.notes ?? null,
-        Recommended: validatedData.Recommended ?? null,
-        WeddingDate: validatedData.WeddingDate
-          ? new Date(validatedData.WeddingDate)
-          : null,
-        dueDate: validatedData.dueDate
-          ? new Date(validatedData.dueDate)
-          : null,
+        name: val.name,
+        phone: val.phone,
+        email: val.email || null,
+        Recommended: val.Recommended || null,
+        notes: val.notes || null,
+        WeddingDate: val.WeddingDate ? new Date(val.WeddingDate) : null,
+        dueDate: val.dueDate ? new Date(val.dueDate) : null,
+
+        // 3. The Nested Create for the first project
+        // This 'create' nested here handles the whole array of family members
+        projects: {
+          create: val.projects.map((p: any) => ({
+            memberName: p.memberName,
+            orderType: p.orderType,
+            price: Number(p.price),
+          }))
+        }
       },
+      include: {
+        projects: true // Include them in the response so we can verify
+      }
     });
 
     return NextResponse.json(newClient);
   } catch (error) {
-    console.error(error);
-    return NextResponse.json(
-      { error: "Failed to create client" },
-      { status: 500 }
-    );
+    console.error("Creation Error:", error);
+    return NextResponse.json({ error: "Failed to create" }, { status: 500 });
   }
 }
-

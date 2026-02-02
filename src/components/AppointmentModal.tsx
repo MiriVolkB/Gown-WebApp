@@ -41,37 +41,55 @@ export default function AppointmentModal({ isOpen, onClose, selectedDate, select
   }, []);
 
   useEffect(() => {
-    if (isOpen) {
-      if (initialData) {
-        setClientName(initialData.title || '');
-        setClientId(initialData.resource?.clientId || null);
-        
-        const currentService = initialData.resource?.service?.name;
-        if (SERVICE_OPTIONS.includes(currentService)) {
-            setServiceName(currentService);
-        } else {
-            setServiceName(SERVICE_OPTIONS[0]);
-        }
-        
-        const start = new Date(initialData.start);
+  if (isOpen) {
+    if (initialData) {
+      setClientName(initialData.title || '');
+      setClientId(initialData.resource?.clientId || null);
+      
+      const currentService = initialData.resource?.service?.name;
+      setServiceName(SERVICE_OPTIONS.includes(currentService) ? currentService : SERVICE_OPTIONS[0]);
+      
+      // FIX: Add safety checks for the start date
+      const start = initialData.start ? new Date(initialData.start) : null;
+      
+      if (start && !isNaN(start.getTime())) {
         setDate(format(start, 'yyyy-MM-dd'));
         setTime(format(start, 'HH:mm'));
-        setNotes(initialData.resource?.notes || '');
-        
-        const end = new Date(initialData.end);
+      } else {
+        // Fallback if initialData.start is invalid
+        setDate('');
+        setTime('');
+      }
+
+      setNotes(initialData.resource?.notes || '');
+      
+      // FIX: Add safety checks for the end date
+      const end = initialData.end ? new Date(initialData.end) : null;
+      if (start && end && !isNaN(start.getTime()) && !isNaN(end.getTime())) {
         const diff = (end.getTime() - start.getTime()) / 60000;
         setDuration(diff.toString());
       } else {
-        setClientName('');
-        setClientId(null);
-        setServiceName(SERVICE_OPTIONS[0]);
-        if (selectedDate) setDate(format(selectedDate, 'yyyy-MM-dd'));
-        if (selectedTime) setTime(selectedTime);
         setDuration('30');
-        setNotes('');
       }
+    } else {
+      // New Appointment Logic
+      setClientName('');
+      setClientId(null);
+      setServiceName(SERVICE_OPTIONS[0]);
+      
+      // FIX: Ensure selectedDate is valid before formatting
+      if (selectedDate && !isNaN(selectedDate.getTime())) {
+        setDate(format(selectedDate, 'yyyy-MM-dd'));
+      } else {
+        setDate('');
+      }
+      
+      if (selectedTime) setTime(selectedTime);
+      setDuration('30');
+      setNotes('');
     }
-  }, [isOpen, selectedDate, selectedTime, initialData]);
+  }
+}, [isOpen, selectedDate, selectedTime, initialData]);
 
   const handleClientSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     const term = e.target.value;
@@ -116,29 +134,45 @@ export default function AppointmentModal({ isOpen, onClose, selectedDate, select
   };
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-bold text-gray-900">{initialData ? 'Edit Appointment' : 'New Appointment'}</h2>
-        <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded-full"><X className="w-5 h-5 text-gray-500" /></button>
+  /* 1. THE DARK OVERLAY */
+  <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+
+    <div className="bg-white w-full max-w-md rounded-xl shadow-2xl overflow-hidden">
+      
+      {/* Header Section */}
+      <div className="p-6 border-b border-gray-100 flex justify-between items-center">
+        <h2 className="text-xl font-bold text-gray-900">
+          {initialData ? 'Edit Appointment' : 'New Appointment'}
+        </h2>
+        <button 
+          onClick={onClose} 
+          className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+        >
+          <X className="w-5 h-5 text-gray-500" />
+        </button>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        {/* Client Search */}
         <div className="relative">
           <label className="block text-sm font-medium text-gray-700 mb-1">Client</label>
-          {/* Removed Icon, removed pl-9 */}
           <input 
             type="text" 
             placeholder="Search client..." 
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
             value={clientName}
             onChange={handleClientSearch}
             onFocus={() => clientName && setShowClientList(true)}
             onBlur={() => setTimeout(() => setShowClientList(false), 200)}
           />
           {showClientList && filteredClients.length > 0 && (
-            <div className="absolute z-50 w-full bg-white border border-gray-200 rounded-lg shadow-lg mt-1 max-h-40 overflow-y-auto">
+            <div className="absolute z-50 w-full bg-white border border-gray-200 rounded-lg shadow-xl mt-1 max-h-40 overflow-y-auto">
               {filteredClients.map(client => (
-                <div key={client.id} className="px-4 py-2 hover:bg-blue-50 cursor-pointer text-sm" onClick={() => selectClient(client)}>
+                <div 
+                  key={client.id} 
+                  className="px-4 py-2 hover:bg-blue-50 cursor-pointer text-sm border-b last:border-0" 
+                  onClick={() => selectClient(client)}
+                >
                   {client.name}
                 </div>
               ))}
@@ -146,12 +180,12 @@ export default function AppointmentModal({ isOpen, onClose, selectedDate, select
           )}
         </div>
 
+        {/* Service Selection */}
         <div>
            <label className="block text-sm font-medium text-gray-700 mb-1">Service Type</label>
            <div className="relative">
-             {/* Removed Icon, removed pl-9 */}
              <select 
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none bg-white appearance-none"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none bg-white appearance-none focus:ring-2 focus:ring-blue-500"
                 value={serviceName}
                 onChange={(e) => setServiceName(e.target.value)}
              >
@@ -161,33 +195,33 @@ export default function AppointmentModal({ isOpen, onClose, selectedDate, select
            </div>
         </div>
 
+        {/* Date & Time Grid */}
         <div className="grid grid-cols-2 gap-4">
             <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
-                {/* Removed Icon, removed pl-9 */}
                 <input 
                     type="date" 
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
                     value={date}
                     onChange={(e) => setDate(e.target.value)}
                 />
             </div>
             <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Time</label>
-                {/* Removed Icon, removed pl-9 */}
                 <input 
                     type="time" 
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
                     value={time}
                     onChange={(e) => setTime(e.target.value)}
                 />
             </div>
         </div>
 
+        {/* Duration */}
         <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Duration</label>
             <select 
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none bg-white"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none bg-white focus:ring-2 focus:ring-blue-500"
                 value={duration}
                 onChange={(e) => setDuration(e.target.value)}
             >
@@ -200,24 +234,35 @@ export default function AppointmentModal({ isOpen, onClose, selectedDate, select
             </select>
         </div>
 
+        {/* Notes */}
         <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
             <textarea 
                 rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none resize-none"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none resize-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Add details..."
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
             />
         </div>
 
+        {/* Action Buttons */}
         <div className="flex gap-3 pt-4">
-            <button type="button" onClick={onClose} className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium">Cancel</button>
-            <button type="submit" className="flex-1 px-4 py-2 bg-blue-900 text-white rounded-lg hover:bg-blue-800 font-medium shadow-sm">
-                {initialData ? 'Update' : 'Save'}
+            <button 
+                type="button" 
+                onClick={onClose} 
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors"
+            >
+                Cancel
+            </button>
+            <button 
+                type="submit" 
+                className="flex-1 px-4 py-2 bg-blue-900 text-white rounded-lg hover:bg-blue-800 font-medium shadow-sm transition-colors"
+            >
+                {initialData ? 'Update' : 'Save Appointment'}
             </button>
         </div>
       </form>
     </div>
-  );
-}
+  </div>
+);}

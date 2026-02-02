@@ -4,7 +4,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url        = "postgres://postgres.qpilhhrdijebwcpovabs:RachelliGowns25@aws-1-ap-southeast-2.pooler.supabase.com:6543/postgres"
+  url        = "postgres://postgres.qpilhhrdijebwcpovabs:RachelliGowns25@aws-1-ap-southeast-2.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1"
   directUrl = "postgresql://postgres:RachelliGowns25@db.qpilhhrdijebwcpovabs.supabase.co:5432/postgres"
 }
 
@@ -14,19 +14,19 @@ model Client {
   email         String?
   phone         String
   WeddingDate   DateTime?
-  Recommended   String?
-  fabricType   String?
-  price        Float?    
   dueDate      DateTime?  @map("needGownBy")
+  Recommended   String?
   notes         String?
-  measurements  Measurement[]
+
+  projects     Project[]     
+  payments     Payment[]
   appointments  Appointment[]
   createdAt     DateTime        @default(now())
 }
 
 model Measurement {
   id        Int      @id @default(autoincrement())
-  clientId  Int
+  projectId  Int
   date      DateTime @default(now())
   Bust      Float
   waist     Float
@@ -37,7 +37,7 @@ model Measurement {
   SleeveWidth     Float
   ShoulderToBust   Float
   notes     String?
-  client    Client   @relation(fields: [clientId], references: [id])
+  project   Project  @relation(fields: [projectId], references: [id])
 }
 
 model Appointment {
@@ -64,4 +64,43 @@ model Service {
   active             Boolean         @default(true)
 
   appointments       Appointment[]
+}
+
+model Project {
+  id           Int           @id @default(autoincrement())
+  clientId     Int
+  client       Client        @relation(fields: [clientId], references: [id])
+  
+  memberName   String        // e.g., "Sarah"
+  orderType    OrderType     @default(RENTAL) 
+  
+  // FIXED BUT FLEXIBLE: Defaulted in UI, but saved here so you can change it
+  price        Float         
+  
+  measurements Measurement[]
+  expenses     Expense[]     
+}
+
+enum OrderType {
+  CUSTOM_MAKE
+  RENTAL
+}
+
+model Expense {
+  id        Int      @id @default(autoincrement())
+  projectId Int
+  project   Project  @relation(fields: [projectId], references: [id])
+  
+  type      String   // "Dying", "Beading", etc.
+  amount    Float
+  date      DateTime @default(now())
+}
+
+model Payment {
+  id        Int      @id @default(autoincrement())
+  clientId  Int
+  client    Client   @relation(fields: [clientId], references: [id])
+  amount    Float    
+  date      DateTime @default(now())
+  note      String?  
 }

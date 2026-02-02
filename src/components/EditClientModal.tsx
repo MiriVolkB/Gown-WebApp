@@ -7,9 +7,10 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Client } from "@/types";
 import { measurementSchema } from "@/lib/validation/measurement";
+import { ClientWithRelations } from "@/types";
 
 interface EditClientModalProps {
-    client: Client;
+    client: ClientWithRelations;
     onClose: () => void;
     onSave?: () => void; // optional callback
 }
@@ -21,9 +22,8 @@ export function EditClientModal({ client, onClose, onSave }: EditClientModalProp
         email: "",
         dueDate: "",
         WeddingDate: "",
-        fabricType: "",
-        price: "",
         notes: "",
+        Recommended: "",
     });
     const [loading, setLoading] = useState(false);
 
@@ -41,8 +41,7 @@ export function EditClientModal({ client, onClose, onSave }: EditClientModalProp
             WeddingDate: client.WeddingDate
                 ? new Date(client.WeddingDate).toISOString().slice(0, 10)
                 : "",
-            fabricType: client.fabricType ?? "",
-            price: client.price?.toString() ?? "",
+            Recommended: client.Recommended ?? "",
             notes: client.notes ?? "",
         });
     }, [client.id]);
@@ -64,7 +63,6 @@ export function EditClientModal({ client, onClose, onSave }: EditClientModalProp
                     ...form,
                     dueDate: form.dueDate ? new Date(form.dueDate).toISOString() : undefined,
                     WeddingDate: form.WeddingDate ? new Date(form.WeddingDate).toISOString() : undefined,
-                    price: form.price !== "" ? Number(form.price) : undefined,
                 }),
 
             });
@@ -98,7 +96,7 @@ export function EditClientModal({ client, onClose, onSave }: EditClientModalProp
 
                 <div className="grid grid-cols-2 gap-4">
                     <div>
-                        <label className="text-sm text-gray-500">Name</label>
+                        <label className="text-sm text-gray-500">Family Name</label>
                         <Input name="name" value={form.name} onChange={handleChange} />
                     </div>
                     <div>
@@ -117,14 +115,13 @@ export function EditClientModal({ client, onClose, onSave }: EditClientModalProp
                         <label className="text-sm text-gray-500">Wedding Date</label>
                         <Input type="date" name="WeddingDate" value={form.WeddingDate} onChange={handleChange} />
                     </div>
-                    <div>
-                        <label className="text-sm text-gray-500">Fabric Type</label>
-                        <Input name="fabricType" value={form.fabricType} onChange={handleChange} />
+                    
+                    <div className="col-span-2">
+                        <label className="text-xs font-semibold uppercase text-gray-400">Recommended By</label>
+                        <Input name="Recommended" value={form.Recommended} onChange={handleChange} />
                     </div>
-                    <div>
-                        <label className="text-sm text-gray-500">Quoted Price</label>
-                        <Input name="price" type="number" value={form.price} onChange={handleChange} />
-                    </div>
+                    
+            
                 </div>
 
                 <div className="mt-4">
@@ -135,7 +132,7 @@ export function EditClientModal({ client, onClose, onSave }: EditClientModalProp
                 <div className="flex justify-end gap-2 mt-6">
                     <Button variant="ghost" onClick={onClose}>Cancel</Button>
                     <Button onClick={handleSubmit} disabled={loading}>
-                        {loading ? "Saving..." : "Save Changes"}
+                        {loading ? "Saving..." : "Save Family Info"}
                     </Button>
                 </div>
             </div>

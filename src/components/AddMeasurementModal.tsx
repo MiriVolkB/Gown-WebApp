@@ -8,17 +8,17 @@ import { measurementSchema } from "@/lib/validation/measurement";
 import { Measurement } from "../types"; 
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import router from "next/dist/shared/lib/router/router";
+
 
 
 
 interface Props {
-  clientId: number;
+  projectId: number;
   onClose: () => void;
   measurementToEdit?: Measurement | null;
 }
 
-export function AddMeasurementModal({ clientId, onClose, measurementToEdit }: Props) {
+export function AddMeasurementModal({ projectId, onClose, measurementToEdit }: Props) {
 const router = useRouter();
   const [errors, setErrors] = useState<Record<string, string>>({});  
   const [form, setForm] = useState({
@@ -58,47 +58,54 @@ const router = useRouter();
   };
 
   const handleSubmit = async () => {
-  const parsed = measurementSchema.safeParse({
-    clientId,
-    Bust: Number(form.Bust),
-    waist: Number(form.waist),
-    Hips: Number(form.Hips),
-    ShirtLength: Number(form.ShirtLength),
-    SkirtLength: Number(form.SkirtLength),
-    SleeveLength: Number(form.SleeveLength),
-    SleeveWidth: Number(form.SleeveWidth),
-    ShoulderToBust: Number(form.ShoulderToBust),
-    notes: form.notes || undefined,
-  });
+    // 1. Validate with Zod
+    const parsed = measurementSchema.safeParse({
+      projectId,
+      Bust: Number(form.Bust),
+      waist: Number(form.waist),
+      Hips: Number(form.Hips),
+      ShirtLength: Number(form.ShirtLength),
+      SkirtLength: Number(form.SkirtLength),
+      SleeveLength: Number(form.SleeveLength),
+      SleeveWidth: Number(form.SleeveWidth),
+      ShoulderToBust: Number(form.ShoulderToBust),
+      notes: form.notes || undefined,
+    });
 
-  if (!parsed.success) {
-  const fieldErrors: Record<string, string> = {};
+    if (!parsed.success) {
+      const fieldErrors: Record<string, string> = {};
+      parsed.error.issues.forEach((err) => {
+        const field = err.path[0] as string;
+        fieldErrors[field] = err.message;
+      });
+      setErrors(fieldErrors);
+      return;
+    }
 
-  parsed.error.issues.forEach((err) => {
-    const field = err.path[0] as string;
-    fieldErrors[field] = err.message;
-  });
+    // 2. USE the dynamic URL and Method you defined!
+    const url = measurementToEdit
+      ? `/api/measurements/${measurementToEdit.id}`
+      : `/api/measurements`;
 
-  setErrors(fieldErrors);
-  return;
-}
+    const method = measurementToEdit ? "PATCH" : "POST";
 
-  const url = measurementToEdit
-    ? `/api/measurements/${measurementToEdit.id}`
-    : `/api/measurements`;
+    try {
+      const res = await fetch(url, {
+        method: method, // Use the variable here!
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(parsed.data),
+      });
 
-  const method = measurementToEdit ? "PATCH" : "POST";
-
-  await fetch("/api/measurements", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(parsed.data),
-  });
-
-  onClose();
-
-  router.refresh();
-};
+      if (res.ok) {
+        onClose();
+        router.refresh();
+      } else {
+        alert("Failed to save measurements.");
+      }
+    } catch (err) {
+      console.error("Save error:", err);
+    }
+  };
 
 
  return (

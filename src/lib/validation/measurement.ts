@@ -4,7 +4,7 @@ import { z } from "zod";
  * Used by BOTH frontend and API
  */
 export const measurementSchema = z.object({
-  clientId: z.number().int().positive("Client is required"),
+  projectId: z.number().int().positive("Client is required"),
 
   Bust: z.number().positive("Bust must be greater than 0"),
   waist: z.number().positive("Waist must be greater than 0"),

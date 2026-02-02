@@ -5,7 +5,7 @@ import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image'; 
 import { usePathname } from 'next/navigation';
-import { Home, Calendar, Users, Settings } from 'lucide-react'; 
+import { Home, Calendar, Users, DollarSign, Settings } from 'lucide-react'; 
 
 export default function Sidebar() {
   const pathname = usePathname();
@@ -34,6 +34,7 @@ export default function Sidebar() {
         <NavItem href="/" icon={<Home size={22} />} label="Home" active={pathname === '/'} />
         <NavItem href="/calendar" icon={<Calendar size={22} />} label="Calendar" active={pathname === '/calendar'} />
         <NavItem href="/clients" icon={<Users size={22} />} label="Clients" active={pathname === '/clients'} />
+        <NavItem href="/finances" icon={<DollarSign size={22} />} label="Finances" active={pathname === '/finances'} />
       </nav>
 
       {/* Bottom Settings */}

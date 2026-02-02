@@ -3,6 +3,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Client } from '../types';
 import { Search } from 'lucide-react';
+import { calculateFamilyFinances } from '../lib/calculations';
 
 interface ClientsPageProps {
   clients: Client[];
@@ -68,21 +69,48 @@ export function ClientsPage({
 
         {/* Clients Grid - Matches card look, uses Deep Navy for client names */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {filteredClients.map((client) => (
-            <button
-              key={client.id}
-              onClick={() => onClientClick(String(client.id))}
-              className="bg-white border border-gray-200 rounded-xl p-8 shadow-sm hover:shadow-lg transition text-center h-32 flex items-center justify-center"
-            >
-              {/* Client Name: Deep Navy color */}
-              <div
-                className="font-medium text-lg"
-                style={{ color: deepNavy }}
-              >
-                {client.name}
-              </div>
-            </button>
-          ))}
+          {filteredClients.map((client) => {
+  // 1. Run the math for this client
+  const { balance, isFullyPaid } = calculateFamilyFinances(client);
+  const gownCount = client.projects?.length || 0;
+
+  return (
+    <button
+      key={client.id}
+      onClick={() => onClientClick(String(client.id))}
+      // Changed h-32 to min-h-[140px] and added flex-col to stack data
+      className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm hover:shadow-lg transition text-center flex flex-col items-center justify-center space-y-2 relative overflow-hidden"
+    >
+      {/* 2. Top corner badge for gown count */}
+      <span className="absolute top-3 right-3 text-[10px] uppercase tracking-wider text-gray-400 font-semibold">
+        {gownCount} {gownCount === 1 ? 'Gown' : 'Gowns'}
+      </span>
+
+      {/* 3. Client Name (Deep Navy) */}
+      <div
+        className="font-bold text-lg leading-tight"
+        style={{ color: deepNavy }}
+      >
+        {client.name}
+      </div>
+
+      {/* 4. Financial Status */}
+      <div className={`text-sm font-medium ${isFullyPaid ? 'text-green-600' : 'text-rose-600'}`}>
+        {isFullyPaid ? (
+          'Fully Paid'
+        ) : (
+          <span>Owes {balance} NIS</span>
+        )}
+      </div>
+
+      {/* 5. Warning Stripe if picked up but unpaid */}
+      {/* (Assumes you have a field for this, otherwise remove) */}
+      {!isFullyPaid && client.projects?.some(p => p.isPickedUp) && (
+        <div className="absolute bottom-0 left-0 right-0 h-1 bg-rose-500" title="Picked up but not paid!" />
+      )}
+    </button>
+  );
+})}
         </div>
 
         {/* Empty State */}

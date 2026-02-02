@@ -43,7 +43,11 @@ export async function POST(request: Request) {
             // SAFE CREATE: Only save the name, let the defaults handle the rest
             // This prevents crashes from missing fields like 'NeedGownBy'
             const newClient = await prisma.client.create({
-                data: { name: body.clientName }
+                data: { 
+        name: body.clientName,
+        phone: "000-000-0000", // Provide whatever field is required
+       
+    }
             });
             finalClientId = newClient.id;
         }
