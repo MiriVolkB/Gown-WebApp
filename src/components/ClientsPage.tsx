@@ -24,7 +24,12 @@ export function ClientsPage({
   onClientClick,
   onNewClient,
 }: ClientsPageProps) {
-  const filteredClients = clients.filter(
+if (!clients || !Array.isArray(clients)) {
+  return <div>Loading clients...</div>; 
+  // Or return null if you want to hide the component
+}
+
+  const filteredClients = (clients ?? []).filter(
     (client) =>
       client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       client.phone.includes(searchQuery)
