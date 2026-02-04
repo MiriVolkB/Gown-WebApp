@@ -84,6 +84,7 @@ model Project {
 enum OrderType {
   CUSTOM_MAKE
   RENTAL
+  CUSTOM_MAKE_RENTAL
 }
 
 model Expense {

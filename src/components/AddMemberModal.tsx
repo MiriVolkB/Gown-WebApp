@@ -26,7 +26,11 @@ export function AddMemberModal({
       const res = await fetch(`/api/clients/${clientId}/projects`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          ...form,
+          // Convert price to number if your API/Prisma expects a Float/Int
+          price: Number(form.price) 
+        }),
       });
 
       if (res.ok) {
@@ -70,8 +74,13 @@ export function AddMemberModal({
               onChange={(e) => {
                 const newType = e.target.value;
 
-                // 1. Decide the new price based on the type
-                const newPrice = newType === "CUSTOM_MAKE" ? "3000" : "1800";
+                // Handle all 3 price tiers
+                let newPrice = "1800"; 
+                if (newType === "CUSTOM_MAKE") {
+                  newPrice = "3000";
+                } else if (newType === "CUSTOM_MAKE_RENTAL") {
+                  newPrice = "2500";
+                }
 
                 // 2. Update BOTH in one go
                 setForm({
@@ -82,7 +91,8 @@ export function AddMemberModal({
               }}
             >
               <option value="RENTAL">Rental</option>
-              <option value="CUSTOM_MAKE">Custom Make</option>
+              <option value="CUSTOM_MAKE">Custom Made To keep</option>
+              <option value="CUSTOM_MAKE_RENTAL">Custom Made Rental</option>
             </select>
           </div>
 
