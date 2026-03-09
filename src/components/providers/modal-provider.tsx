@@ -9,8 +9,23 @@ import AddExpenseModal from "@/components/AddExpenseModal"; // Check this path m
 
 export const ModalProvider = () => {
   const { isOpen, onClose, type, data } = useModal();
+  const [projects, setProjects] = useState<any[]>([]);
 
-  
+  useEffect(() => {
+    if (type === "addExpense" && projects.length === 0) {
+      fetch("/api/clients")
+        .then(res => res.json())
+        .then(clients => {
+          const allProjects = clients.flatMap((client: any) =>
+            (client.projects || []).map((p: any) => ({
+              ...p,
+              clientName: client.name
+            }))
+          );
+          setProjects(allProjects);
+        });
+    }
+  }, [type]);
 
   // If the store says no modal is open, we render nothing
   if (!isOpen || !type) return null;
@@ -27,24 +42,25 @@ export const ModalProvider = () => {
           selectedDate={new Date()} 
           selectedTime={null}
           onSave={() => {
-            // This is a global save, you can add router.refresh() here if needed
             onClose();
           }} 
         />
       )}
-
       {type === "addPayment" && (
-        // Note: For a global header button, we might not have a clientId yet.
-        // We'll handle selecting a client inside the modal later!
         <AddPaymentModal 
            clientId={data?.clientId} 
            allClients={data?.allClients || []}
            onClose={onClose} 
            onSave={() => {
              onClose();
-             // Optional: trigger a page refresh
              window.location.reload(); 
            }} 
+        />
+      )}
+      {type === "addExpense" && (
+        <AddExpenseModal 
+          projects={projects}
+          onClose={onClose}
         />
       )}
     </>

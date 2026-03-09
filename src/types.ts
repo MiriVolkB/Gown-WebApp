@@ -39,7 +39,7 @@ export interface Payment {
   clientId: number;
   amount: number;
   date: string;
-  method: string; // "Cash", "Check", etc.
+  method?: string; // "Cash", "Check", etc. (optional for existing records)
 }
 
 export interface Appointment {

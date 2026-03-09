@@ -31,7 +31,7 @@ export async function GET(req: Request) {
     try {
         // 2. Fetch everything in parallel for speed
         const [payments, expenses, projects, allClientsForFlags] = await Promise.all([
-            prisma.payment.findMany({ where: { date: dateFilter }, orderBy: { date: 'desc' } }),
+            prisma.payment.findMany({ where: { date: dateFilter }, orderBy: { date: 'desc' }, include: { client: true } }),
             prisma.expense.findMany({ where: { date: dateFilter }, orderBy: { date: 'desc' } }),
             prisma.project.findMany({
                 include: {

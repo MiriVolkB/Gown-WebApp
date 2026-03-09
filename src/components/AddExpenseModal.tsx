@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 interface Project {
   id: number;
   memberName: string;
+  clientName?: string;
 }
 
 interface AddExpenseModalProps {
@@ -54,18 +55,23 @@ export default function AddExpenseModal({ projects, initialProjectId, onClose }:
         <h3 className="text-2xl font-serif mb-6 text-slate-900">Add Gown Expense</h3>
 
         <div className="space-y-5">
-          {/* CLIENT SELECTION: Only shows if projects list is provided (Overview mode) */}
-          {projects && !initialProjectId && (
+          {/* CLIENT SELECTION: Always show when projects can be provided */}
+          {!initialProjectId && (
             <div>
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Select Client / Gown</label>
               <select
-                className="w-full border-slate-200 rounded-lg p-3 mt-1 bg-slate-50 outline-none focus:ring-2 focus:ring-slate-900/5 transition-all"
+                className="w-full border border-slate-200 rounded-lg p-3 mt-1 bg-slate-50 outline-none focus:ring-2 focus:ring-slate-900/5 transition-all"
                 value={form.projectId}
                 onChange={(e) => setForm({ ...form, projectId: Number(e.target.value) })}
+                disabled={!projects || projects.length === 0}
               >
-                <option value="">Select a member...</option>
-                {projects.map(p => (
-                  <option key={p.id} value={p.id}>{p.memberName}</option>
+                <option value="">
+                  {!projects || projects.length === 0 ? "Loading..." : "Select a member..."}
+                </option>
+                {projects && projects.length > 0 && projects.map(p => (
+                  <option key={p.id} value={p.id}>
+                    {p.clientName ? `${p.clientName} - ${p.memberName}` : p.memberName}
+                  </option>
                 ))}
               </select>
             </div>

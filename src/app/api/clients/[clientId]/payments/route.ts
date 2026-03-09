@@ -14,7 +14,7 @@ export async function POST(
       data: {
         clientId: Number(clientId),
         amount: Number(amount),
-        //method: method, // e.g., 'CASH', 'CHECK', 'TRANSFER'
+        method: method || undefined, // save provided method (optional fallback)
         date: new Date(date),
         note: notes,
       },

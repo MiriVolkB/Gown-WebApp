@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { format, isValid } from 'date-fns';
 import { Calendar, Clock, FileText } from 'lucide-react';
 import { Appointment, Measurement } from '../types'; // Import Measurement
-import { ArrowLeft, Edit, Plus } from 'lucide-react';
+import { ArrowLeft, Edit, Plus, Edit2, Check, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { AddMeasurementModal } from "@/components/AddMeasurementModal";
 import { EditClientModal } from "@/components/EditClientModal";
@@ -37,13 +37,112 @@ interface ClientProfilePageProps {
 const deepNavy = '#1E2024';
 const lightGrayBackground = '#F7F7F7';
 
-// Helper component for displaying data field pairs
-const DetailItem = ({ label, value }: { label: string; value: React.ReactNode }) => (
-  <div>
-    <div className="text-sm mb-1" style={{ color: 'gray' }}>{label}</div>
-    <div className="font-medium" style={{ color: deepNavy }}>{value}</div>
-  </div>
-);
+// Helper component for displaying data field pairs with inline editing
+const DetailItem = ({ 
+  label, 
+  value, 
+  field, 
+  type = 'text',
+  editable = false,
+  onSave 
+}: { 
+  label: string; 
+  value: React.ReactNode;
+  field?: string;
+  type?: 'text' | 'email' | 'date';
+  editable?: boolean;
+  onSave?: (field: string, value: string) => Promise<void>;
+}) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState(value?.toString() || '');
+  const [saving, setSaving] = useState(false);
+
+  const handleEdit = () => {
+    let initialValue = value?.toString() || '';
+    if (type === 'date' && value && typeof value === 'string') {
+      // Convert display date back to ISO format for input
+      const date = new Date(value);
+      if (!isNaN(date.getTime())) {
+        initialValue = date.toISOString().split('T')[0];
+      }
+    }
+    setEditValue(initialValue);
+    setIsEditing(true);
+  };
+
+  const handleSave = async () => {
+    if (!onSave || !field) return;
+    setSaving(true);
+    try {
+      await onSave(field, editValue);
+      setIsEditing(false);
+    } catch (error) {
+      console.error('Failed to save:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancel = () => {
+    let initialValue = value?.toString() || '';
+    if (type === 'date' && value && typeof value === 'string') {
+      // Convert display date back to ISO format for input
+      const date = new Date(value);
+      if (!isNaN(date.getTime())) {
+        initialValue = date.toISOString().split('T')[0];
+      }
+    }
+    setEditValue(initialValue);
+    setIsEditing(false);
+  };
+
+  return (
+    <div className="group">
+      <div className="text-sm mb-1" style={{ color: 'gray' }}>
+        {label}
+      </div>
+      <div className="font-medium flex items-center gap-1" style={{ color: deepNavy }}>
+        {isEditing ? (
+          <>
+            <input
+              type={type}
+              value={editValue}
+              onChange={(e) => setEditValue(e.target.value)}
+              className="flex-1 px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+              disabled={saving}
+            />
+            <button 
+              onClick={handleSave}
+              disabled={saving}
+              className="w-6 h-6 bg-green-100 hover:bg-green-200 rounded-full flex items-center justify-center disabled:opacity-50 transition-colors"
+            >
+              <Check className="h-3 w-3 text-green-600" />
+            </button>
+            <button 
+              onClick={handleCancel}
+              disabled={saving}
+              className="w-6 h-6 bg-red-100 hover:bg-red-200 rounded-full flex items-center justify-center disabled:opacity-50 transition-colors"
+            >
+              <X className="h-3 w-3 text-red-600" />
+            </button>
+          </>
+        ) : (
+          <>
+            <span className="flex-1">{value}</span>
+            {editable && (
+              <button 
+                onClick={handleEdit}
+                className="flex-shrink-0 w-6 h-6 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center transition-colors"
+              >
+                <Edit2 className="h-3 w-3 text-gray-500" />
+              </button>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+};
 
 
 
@@ -70,11 +169,48 @@ export function ClientProfilePage({
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
   const [editingMeasurement, setEditingMeasurement] = useState<Measurement | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [selectedClientForPayment, setSelectedClientForPayment] = useState<any>(null);
   const clientAppointments = appointments.filter((apt) => apt.clientId === client.id);
   
-  // Inside your Clients Component
+  // State for inline editing
+  const [clientData, setClientData] = useState({
+    name: client.name,
+    phone: client.phone,
+    email: client.email || '',
+    dueDate: client.dueDate,
+    WeddingDate: client.WeddingDate,
+  });
 
-const [selectedClientForPayment, setSelectedClientForPayment] = useState<any>(null);
+  // Function to save individual field changes
+  const handleFieldSave = async (field: string, value: string) => {
+    try {
+      const updateData: any = { [field]: value };
+      
+      // Handle date fields
+      if (field === 'dueDate' || field === 'WeddingDate') {
+        updateData[field] = value ? new Date(value).toISOString() : null;
+      }
+
+      const res = await fetch(`/api/clients/${client.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updateData),
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to update');
+      }
+
+      // Update local state
+      setClientData(prev => ({ ...prev, [field]: value }));
+      
+      // Refresh the page to update all components
+      router.refresh();
+    } catch (error) {
+      console.error('Failed to save field:', error);
+      throw error;
+    }
+  };
 
 // Call this from your "Global" Add Payment button
 const openGlobalPayment = () => {
@@ -249,9 +385,28 @@ const openSpecificPayment = (client: any) => {
                     Contact Details
                   </h4>
                   <div className="space-y-6">
-                    <DetailItem label="Full Name" value={client.name} />
-                    <DetailItem label="Phone Number" value={client.phone} />
-                    <DetailItem label="Email Address" value={client.email || 'No email provided'} />
+                    <DetailItem 
+                      label="Full Name" 
+                      value={clientData.name} 
+                      field="name"
+                      editable={true}
+                      onSave={handleFieldSave}
+                    />
+                    <DetailItem 
+                      label="Phone Number" 
+                      value={clientData.phone} 
+                      field="phone"
+                      editable={true}
+                      onSave={handleFieldSave}
+                    />
+                    <DetailItem 
+                      label="Email Address" 
+                      value={clientData.email || 'No email provided'} 
+                      field="email"
+                      type="email"
+                      editable={true}
+                      onSave={handleFieldSave}
+                    />
                   </div>
                 </div>
 
@@ -263,11 +418,19 @@ const openSpecificPayment = (client: any) => {
                   <div className="space-y-6">
                     <DetailItem
                       label="Due Date"
-                      value={client.dueDate ? new Date(client.dueDate).toLocaleDateString("en-GB") : 'N/A'}
+                      value={clientData.dueDate ? new Date(clientData.dueDate).toLocaleDateString("en-GB") : 'N/A'}
+                      field="dueDate"
+                      type="date"
+                      editable={true}
+                      onSave={handleFieldSave}
                     />
                     <DetailItem
                       label="Wedding Date"
-                      value={client.WeddingDate ? new Date(client.WeddingDate).toLocaleDateString("en-GB") : 'N/A'}
+                      value={clientData.WeddingDate ? new Date(clientData.WeddingDate).toLocaleDateString("en-GB") : 'N/A'}
+                      field="WeddingDate"
+                      type="date"
+                      editable={true}
+                      onSave={handleFieldSave}
                     />
                   </div>
                 </div>
@@ -349,7 +512,7 @@ const openSpecificPayment = (client: any) => {
                                   </td>
                                   <td className="px-6 py-4 text-sm">
                                     <span className="text-slate-500 font-medium uppercase text-[10px] tracking-tight">
-                                      {payment.method?.replace('_', ' ')}
+                                      {(payment.method?.replace('_', ' ') || 'N/A')}
                                     </span>
                                   </td>
                                   <td className="px-6 py-4 text-sm font-bold text-right text-slate-900">
@@ -479,7 +642,17 @@ const openSpecificPayment = (client: any) => {
                         </div>
 
                         {/* The Display Component with the slim lines */}
-                        <SingleMeasurementDisplay measurement={measurement} />
+                        <SingleMeasurementDisplay 
+                          measurement={measurement} 
+                          onSave={async (field: string, value: string) => {
+                            await fetch(`/api/measurements/${measurement.id}`, {
+                              method: "PUT",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ [field]: field === 'notes' ? value : Number(value) }),
+                            });
+                            router.refresh();
+                          }}
+                        />
                       </div>
                     ))
                   ) : (

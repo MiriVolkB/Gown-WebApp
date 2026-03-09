@@ -102,6 +102,7 @@ model Payment {
   clientId  Int
   client    Client   @relation(fields: [clientId], references: [id])
   amount    Float    
+  method    String   @default("cash") // new field to store payment method (CASH, TRANSFER, BIT, etc.)
   date      DateTime @default(now())
   note      String?  
 }
