@@ -73,6 +73,8 @@ model Project {
   
   memberName   String        // e.g., "Sarah"
   orderType    OrderType     @default(RENTAL) 
+  isPickedUp Boolean @default(false)
+  
   
   // FIXED BUT FLEXIBLE: Defaulted in UI, but saved here so you can change it
   price        Float         

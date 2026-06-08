@@ -1,12 +1,12 @@
 'use client';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-import { Client } from '../types';
+import { ClientListItem } from '../types';
 import { Search } from 'lucide-react';
 import { calculateFamilyFinances } from '../lib/calculations';
 
 interface ClientsPageProps {
-  clients: Client[];
+  clients: ClientListItem[];
   searchQuery: string;
   onSearchChange: (value: string) => void;
   onClientClick: (clientId: string) => void;

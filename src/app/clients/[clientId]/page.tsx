@@ -1,7 +1,10 @@
 import { notFound } from "next/navigation";
 import { ClientProfilePage } from "@/components/ClientProfilePage";
 import { prisma } from "@/lib/prisma";
-import { Client, Appointment } from "@/types";
+import {
+  ClientProfileData,
+  AppointmentWithService,
+} from "@/types";
 
 export default async function ClientProfileRoute({
   params,
@@ -38,7 +41,7 @@ export default async function ClientProfileRoute({
   if (!clientData) notFound();
 
   // TypeScript now knows clientData is not null
-  const appointments: Appointment[] = clientData.appointments ?? [];
+  const appointments: AppointmentWithService[] = clientData.appointments ?? [];
 
   // ✅ Return JSX properly
   return <ClientProfilePage client={clientData} appointments={appointments} />;

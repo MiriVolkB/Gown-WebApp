@@ -4,11 +4,11 @@ import React from 'react';
 import { format } from 'date-fns';
 import { Calendar, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Appointment } from '@/types';
+import { AppointmentWithService } from '@/types';
 
 interface AppointmentListProps {
-  appointments: Appointment[];
-  onEdit: (apt: Appointment) => void;
+  appointments: AppointmentWithService[];
+  onEdit: (apt: AppointmentWithService) => void;
   onCancel: (id: number) => void;
 }
 

@@ -18,6 +18,17 @@ export type ClientProfileData = Prisma.ClientGetPayload<{
   };
 }>;
 
+export type ClientListItem = Prisma.ClientGetPayload<{
+  include: {
+    projects: {
+      include: {
+        expenses: true;
+      };
+    };
+    payments: true;
+  };
+}>;
+
 // 2. Sub-Types (These replace your manual Project and Appointment interfaces)
 export type ProjectWithRelations = Prisma.ProjectGetPayload<{
   include: {

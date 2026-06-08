@@ -2,8 +2,7 @@
 
 import React from 'react';
 import { calculateFamilyFinances } from '@/lib/calculations';
-import { ClientProfileData } from "../ClientProfilePage";
-import { ClientWithRelations } from "@/types";
+import { ClientProfileData } from "@/types";
 
 export function FamilyFinancialSummary({ client }: { client: ClientProfileData }) {
   const finances = calculateFamilyFinances(client);

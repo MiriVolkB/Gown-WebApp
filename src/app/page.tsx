@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { format, isSameDay } from 'date-fns';
 import { Calendar, Plus, UserPlus } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
 
 // Components from both branches
 import AppointmentDetails from '@/components/AppointmentDetails';
@@ -12,7 +13,11 @@ import { ClientsPage } from '@/components/ClientsPage';
 import { ClientProfilePage } from '@/components/ClientProfilePage';
 
 // Types
-import { Client, Appointment } from '@/types';
+import {
+  ClientListItem,
+  AppointmentWithService,
+  ClientProfileData
+} from '@/types';
 
 // Keeping these consistent for visual continuity
 const SERVICE_COLORS: Record<string, string> = {
@@ -28,6 +33,7 @@ const Header = (props: any) => null;
 const NewClientDialog = (props: any) => null;
 
 export default function HomePage() {
+  const router = useRouter(); // Add this line
   const [currentPage, setCurrentPage] = useState('home');
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -38,7 +44,7 @@ export default function HomePage() {
   const queryClient = useQueryClient();
 
   // --- DATA FETCHING (Using React Query from Feature branch) ---
-  const { data: clients = [] } = useQuery<Client[]>({
+  const { data: clients = [] } = useQuery<ClientListItem[]>({
     queryKey: ['clients'],
     queryFn: async () => {
       const res = await fetch('/api/clients');
@@ -179,26 +185,16 @@ export default function HomePage() {
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
             onClientClick={(id) => {
-              setSelectedClientId(id.toString());
-              setCurrentPage('client-profile');
+              router.push(`/clients/${id}`);
             }}
-            onNewClient={() => { }}
+            onNewClient={() => { 
+              router.push('/clients/new'); // Assuming you have a new client route
+            }}
           />
         </main>
       )}
 
-      {/* 3. CLIENT PROFILE VIEW (Feature Logic) */}
-      {currentPage === 'client-profile' && selectedClient && (
-        <main className="p-10">
-          <ClientProfilePage
-            client={selectedClient}
-            appointments={appointments.filter(a => a.clientId === selectedClient.id)}
-            onBack={() => setCurrentPage('clients')}
-            onNewAppointment={() => setIsCreateOpen(true)}
-          />
-        </main>
-      )}
-
+      
       {/* SHARED MODALS */}
       <AppointmentDetails
         isOpen={!!selectedEvent}

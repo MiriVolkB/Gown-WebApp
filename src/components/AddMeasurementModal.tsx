@@ -5,7 +5,7 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
 import { measurementSchema } from "@/lib/validation/measurement";
-import { Measurement } from "../types"; 
+import { PrismaMeasurement } from "../types"; 
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
@@ -15,7 +15,7 @@ import { useEffect } from "react";
 interface Props {
   projectId: number;
   onClose: () => void;
-  measurementToEdit?: Measurement | null;
+  measurementToEdit?: PrismaMeasurement | null;
 }
 
 export function AddMeasurementModal({ projectId, onClose, measurementToEdit }: Props) {

@@ -3,9 +3,9 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation'; 
 import { ClientsPage } from '@/components/ClientsPage';
-import { Client } from '@/types';
+import { ClientListItem } from '@/types';
 
-const fetchClients = async (): Promise<Client[]> => {
+const fetchClients = async (): Promise<ClientListItem[]> => {
   const res = await fetch('/api/clients');
   if (!res.ok) {
     throw new Error('Failed to fetch clients');
