@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { ClientProfilePage } from "@/components/ClientProfilePage";
+import { prisma } from "@/lib/prisma";
 import { Client, Appointment } from "@/types";
 
 export default async function ClientProfileRoute({
@@ -7,34 +8,38 @@ export default async function ClientProfileRoute({
 }: {
   params: Promise<{ clientId: string }>;
 }) {
-  // ✅ MUST unwrap params FIRST
   const { clientId } = await params;
-
   const clientIdInt = Number(clientId);
 
   if (Number.isNaN(clientIdInt)) {
     notFound();
   }
 
-  const BASE_URL =
-    process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
-
-  const res = await fetch(`${BASE_URL}/api/clients/${clientIdInt}`, {
-    cache: "no-store",
+  // Directly fetch from DB
+  const clientData = await prisma.client.findUnique({
+    where: { id: clientIdInt },
+    include: {
+      projects: {
+        include: {
+          measurements: { orderBy: { date: "desc" } },
+          expenses: true,
+        },
+      },
+      payments: true,
+      appointments: {
+        include: {
+          service: true,
+        },
+      },
+    },
   });
 
-  if (res.status === 404) notFound();
-  if (!res.ok) {
-    throw new Error(`Failed to fetch client: ${res.status}`);
-  }
+  // Handle null safely
+  if (!clientData) notFound();
 
-  const clientData: Client = await res.json();
+  // TypeScript now knows clientData is not null
   const appointments: Appointment[] = clientData.appointments ?? [];
 
-  return (
-    <ClientProfilePage
-      client={clientData}
-      appointments={appointments}
-    />
-  );
+  // ✅ Return JSX properly
+  return <ClientProfilePage client={clientData} appointments={appointments} />;
 }

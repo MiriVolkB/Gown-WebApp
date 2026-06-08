@@ -2,9 +2,10 @@
 
 import React from 'react';
 import { calculateFamilyFinances } from '@/lib/calculations';
+import { ClientProfileData } from "../ClientProfilePage";
 import { ClientWithRelations } from "@/types";
 
-export function FamilyFinancialSummary({ client }: { client: ClientWithRelations }) {
+export function FamilyFinancialSummary({ client }: { client: ClientProfileData }) {
   const finances = calculateFamilyFinances(client);
   const { totalBill, totalPaid, balance, isFullyPaid, totalBasePrice, totalExpenses } = finances;
 

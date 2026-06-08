@@ -1,25 +1,27 @@
 "use client";
 
 import React, { useState } from 'react';
-import { Measurement } from '@/types';
+import { Measurement } from "@prisma/client";
 import { Edit2, Check, X } from 'lucide-react';
 
 const deepNavy = '#1E2024';
 
 // Enhanced DetailItem with inline editing
-const DetailItem = ({ 
+const MeasurementDetailItem = ({ 
   label, 
   value, 
   field,
   type = 'text',
   editable = false,
+  suffix = '', // NEW: Pass " cm" here!
   onSave 
 }: { 
   label: string; 
-  value: React.ReactNode;
+  value: string | number | undefined | null; // Changed to accept raw numbers/strings  field?: string;
   field?: string;
   type?: 'text' | 'number';
   editable?: boolean;
+  suffix?: string;
   onSave?: (field: string, value: string) => Promise<void>;
 }) => {
   const [isEditing, setIsEditing] = useState(false);
@@ -48,6 +50,11 @@ const DetailItem = ({
     setEditValue(value?.toString() || '');
     setIsEditing(false);
   };
+
+  // NEW: Safely figure out what to display when NOT editing
+  const displayValue = (value !== undefined && value !== null && value !== '') 
+    ? `${value}${suffix}` 
+    : 'N/A';
 
   return (
     <div className="group">
@@ -110,75 +117,83 @@ export function SingleMeasurementDisplay({
     <div className="space-y-6">
       <hr className="border-t border-slate-100" />
       <div className="max-w-4xl mx-auto grid grid-cols-2 md:grid-cols-3 gap-x-12 gap-y-8 py-2">
-        <DetailItem 
+        <MeasurementDetailItem 
           label="Bust" 
           value={formatValue(measurement.Bust)} 
           field="Bust"
           type="number"
+          suffix=" cm"
           editable={!!onSave}
           onSave={onSave}
         />
-        <DetailItem 
+        <MeasurementDetailItem 
           label="Waist" 
           value={formatValue(measurement.waist)} 
           field="waist"
           type="number"
+          suffix=" cm"
           editable={!!onSave}
           onSave={onSave}
         />
-        <DetailItem 
+        <MeasurementDetailItem 
           label="Hips" 
           value={formatValue(measurement.Hips)} 
           field="Hips"
           type="number"
+          suffix=" cm"
           editable={!!onSave}
           onSave={onSave}
         />
 
-        <DetailItem 
+        <MeasurementDetailItem 
           label="Shoulder to Bust" 
           value={formatValue(measurement.ShoulderToBust)} 
           field="ShoulderToBust"
           type="number"
+          suffix=" cm"
           editable={!!onSave}
           onSave={onSave}
         />
-        <DetailItem 
+        <MeasurementDetailItem 
           label="Sleeve Length" 
           value={formatValue(measurement.SleeveLength)} 
           field="SleeveLength"
           type="number"
+          suffix=" cm"
           editable={!!onSave}
           onSave={onSave}
         />
-        <DetailItem 
+        <MeasurementDetailItem 
           label="Sleeve Width" 
           value={formatValue(measurement.SleeveWidth)} 
           field="SleeveWidth"
           type="number"
+          suffix=" cm"
           editable={!!onSave}
           onSave={onSave}
         />
 
-        <DetailItem 
+        <MeasurementDetailItem 
           label="Shirt Length" 
           value={formatValue(measurement.ShirtLength)} 
           field="ShirtLength"
           type="number"
+          suffix=" cm"
           editable={!!onSave}
           onSave={onSave}
         />
-        <DetailItem 
+        <MeasurementDetailItem 
           label="Skirt Length" 
           value={formatValue(measurement.SkirtLength)} 
           field="SkirtLength"
           type="number"
+          suffix=" cm"
           editable={!!onSave}
           onSave={onSave}
         />
 
         <div className="col-span-2">
-          <DetailItem 
+          <MeasurementDetailItem 
             label="Tailor Notes" 
             value={measurement.notes || 'None'} 
             field="notes"
