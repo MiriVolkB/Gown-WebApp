@@ -41,7 +41,7 @@ export function AddClientModal({ onClose }: { onClose: () => void }) {
       Recommended: "",
       WeddingDate: "",
       dueDate: "",
-      projects: [{ memberName: "", orderType: "RENTAL", price: 1800 }],
+      projects: [{ memberName: "", orderType: "RENTAL", price: 2000 }],
     },
   });
 
@@ -51,14 +51,12 @@ export function AddClientModal({ onClose }: { onClose: () => void }) {
   });
 
   // Helper from your original page
-  const handleTypeChange = (index: number, type: 'RENTAL' | 'CUSTOM_MAKE' | 'CUSTOM_MAKE_RENTAL') => {
-    let defaultPrice = 1800;
+  const handleTypeChange = (index: number, type: 'RENTAL' |  'CUSTOM_MAKE_RENTAL') => {
+    let defaultPrice = 2000;
 
-    if (type === 'CUSTOM_MAKE') {
-      defaultPrice = 3000;
-    } else if (type === 'CUSTOM_MAKE_RENTAL') {
-      defaultPrice = 2500; // Adjust this number to your actual business logic
-    }
+    if (type === 'CUSTOM_MAKE_RENTAL') {
+      defaultPrice = 2500;
+    } 
     form.setValue(`projects.${index}.orderType`, type);
     form.setValue(`projects.${index}.price`, defaultPrice);
   };
@@ -195,7 +193,7 @@ export function AddClientModal({ onClose }: { onClose: () => void }) {
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={() => append({ memberName: "", orderType: "RENTAL", price: 1800 })}
+                        onClick={() => append({ memberName: "", orderType: "RENTAL", price: 2000 })}
                         className="text-blue-600 border-blue-200 hover:bg-blue-50"
                       >
                         <Plus className="h-4 w-4 mr-1" /> Add Member
@@ -235,7 +233,6 @@ export function AddClientModal({ onClose }: { onClose: () => void }) {
                                   onChange={(e) => handleTypeChange(index, e.target.value as any)}
                                 >
                                   <option value="RENTAL">Rental</option>
-                                  <option value="CUSTOM_MAKE">Custom Made To keep</option>
                                   <option value="CUSTOM_MAKE_RENTAL">Custom Made Rental</option>
                                 </select>
                               </FormControl>

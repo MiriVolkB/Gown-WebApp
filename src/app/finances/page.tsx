@@ -351,7 +351,7 @@ function copyText(text: string, key: string, setCopiedItems: React.Dispatch<Reac
     if (!text || !navigator?.clipboard) return;
     navigator.clipboard.writeText(text).then(() => {
         setCopiedItems(prev => ({ ...prev, [key]: true }));
-        setTimeout(() => setCopiedItems(prev => ({ ...prev, [key]: false })), 1800);
+        setTimeout(() => setCopiedItems(prev => ({ ...prev, [key]: false })), 2000);
     }).catch(() => {});
 }
 

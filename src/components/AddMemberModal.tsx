@@ -16,7 +16,7 @@ export function AddMemberModal({
   const [form, setForm] = useState({
     memberName: "",
     orderType: "RENTAL",
-    price: "1800",
+    price: "2000",
   });
 
   const handleSubmit = async () => {
@@ -75,12 +75,10 @@ export function AddMemberModal({
                 const newType = e.target.value;
 
                 // Handle all 3 price tiers
-                let newPrice = "1800"; 
-                if (newType === "CUSTOM_MAKE") {
-                  newPrice = "3000";
-                } else if (newType === "CUSTOM_MAKE_RENTAL") {
+                let newPrice = "2000"; 
+                if (newType === "CUSTOM_MAKE_RENTAL") {
                   newPrice = "2500";
-                }
+                } 
 
                 // 2. Update BOTH in one go
                 setForm({
@@ -91,7 +89,6 @@ export function AddMemberModal({
               }}
             >
               <option value="RENTAL">Rental</option>
-              <option value="CUSTOM_MAKE">Custom Made To keep</option>
               <option value="CUSTOM_MAKE_RENTAL">Custom Made Rental</option>
             </select>
           </div>
