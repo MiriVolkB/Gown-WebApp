@@ -7,6 +7,7 @@ interface ModalData {
   clientName?: string; // Helpful for the "For: Name" label
   allClients?: any[];
   projects?: any[];
+  initialData?: any;
 }
 
 interface ModalStore {

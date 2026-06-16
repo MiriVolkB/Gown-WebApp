@@ -118,10 +118,14 @@
     @apply border-border outline-ring/50;
   }
 
-  body {
-    @apply bg-background text-foreground;
+  html, body {
+    @apply bg-background text-foreground overflow-x-hidden w-full;
   }
 
+  /* ADDED: Force 16px font size on inputs to stop the iPhone zoom bug */
+  input, textarea, select {
+    font-size: 16px !important;
+  }
 }
 /* ONLY active tabs */
 button[role="tab"][data-state="active"] {

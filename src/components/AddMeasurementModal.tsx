@@ -1,16 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
 import { measurementSchema } from "@/lib/validation/measurement";
 import { PrismaMeasurement } from "../types"; 
-import { useRouter } from "next/navigation";
-import { useEffect } from "react";
-
-
-
+import { CheckCircle2 } from "lucide-react"; // 1. Added checkmark
+import { BaseModal } from "@/components/BaseModal"; // 2. Added BaseModal wrapper
 
 interface Props {
   projectId: number;
@@ -19,8 +17,10 @@ interface Props {
 }
 
 export function AddMeasurementModal({ projectId, onClose, measurementToEdit }: Props) {
-const router = useRouter();
+  const router = useRouter();
   const [errors, setErrors] = useState<Record<string, string>>({});  
+  const [isSubmitting, setIsSubmitting] = useState(false); // Added loading state
+  const [showSuccess, setShowSuccess] = useState(false); // Added success state
   const [form, setForm] = useState({
     Bust: "",
     waist: "",
@@ -49,12 +49,14 @@ const router = useRouter();
     });
   }, [measurementToEdit]);
 
-
-
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     setForm({ ...form, [e.target.name]: e.target.value });
+    // Clear the error for this field when the user starts typing
+    if (errors[e.target.name]) {
+      setErrors({ ...errors, [e.target.name]: "" });
+    }
   };
 
   const handleSubmit = async () => {
@@ -82,7 +84,8 @@ const router = useRouter();
       return;
     }
 
-    // 2. USE the dynamic URL and Method you defined!
+    setIsSubmitting(true);
+
     const url = measurementToEdit
       ? `/api/measurements/${measurementToEdit.id}`
       : `/api/measurements`;
@@ -91,147 +94,176 @@ const router = useRouter();
 
     try {
       const res = await fetch(url, {
-        method: method, // Use the variable here!
+        method: method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(parsed.data),
       });
 
       if (res.ok) {
-        onClose();
-        router.refresh();
+        // Trigger success animation
+        setShowSuccess(true);
+        setTimeout(() => {
+          onClose();
+          router.refresh();
+        }, 2000);
       } else {
         alert("Failed to save measurements.");
+        setIsSubmitting(false);
       }
     } catch (err) {
       console.error("Save error:", err);
+      setIsSubmitting(false);
     }
   };
 
+  return (
+    // 3. Replaced raw HTML with BaseModal
+    <BaseModal
+      title={showSuccess ? "Success" : (measurementToEdit ? "Edit Measurements" : "Add Measurements")}
+      onClose={onClose}
+    >
+      {showSuccess ? (
+        <div className="flex flex-col items-center justify-center text-center space-y-4 min-h-[300px]">
+          <div className="animate-bounce">
+            <CheckCircle2 className="h-20 w-20 text-emerald-500" />
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900">Measurements Saved!</h2>
+          <p className="text-gray-500 text-sm">The gown details have been updated.</p>
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs font-bold uppercase text-gray-400 block mb-1" htmlFor="Bust">Bust (cm)</label>
+              <Input
+                id="Bust"
+                name="Bust"
+                placeholder="0"
+                onChange={handleChange}
+                value={form.Bust}
+                className={errors.Bust ? "border-red-500 focus-visible:ring-red-500" : ""}
+              />
+              {errors.Bust && <p className="text-[10px] text-red-500 mt-1">{errors.Bust}</p>}
+            </div>
 
- return (
-  <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-    <div className="bg-white rounded-xl p-6 w-full max-w-lg shadow-lg">
-      <h3 className="text-lg font-medium mb-4">
-        {measurementToEdit ? "Edit Measurements" : "Add Measurements"}
-      </h3>
+            <div>
+              <label className="text-xs font-bold uppercase text-gray-400 block mb-1" htmlFor="waist">Waist (cm)</label>
+              <Input
+                id="waist"
+                name="waist"
+                placeholder="0"
+                onChange={handleChange}
+                value={form.waist}
+                className={errors.waist ? "border-red-500 focus-visible:ring-red-500" : ""}
+              />
+              {errors.waist && <p className="text-[10px] text-red-500 mt-1">{errors.waist}</p>}
+            </div>
 
-      <div className="grid grid-cols-2 gap-4">
-  <div>
-    <label className="block text-sm text-gray-500 mb-1" htmlFor="Bust">Bust (cm)</label>
-    <Input
-      id="Bust"
-      name="Bust"
-      placeholder="Enter Bust"
-      onChange={handleChange}
-      value={form.Bust}
-    />
-    {errors.Bust && <p className="text-sm text-red-500">{errors.Bust}</p>}
-  </div>
+            <div>
+              <label className="text-xs font-bold uppercase text-gray-400 block mb-1" htmlFor="Hips">Hips (cm)</label>
+              <Input
+                id="Hips"
+                name="Hips"
+                placeholder="0"
+                onChange={handleChange}
+                value={form.Hips}
+                className={errors.Hips ? "border-red-500 focus-visible:ring-red-500" : ""}
+              />
+              {errors.Hips && <p className="text-[10px] text-red-500 mt-1">{errors.Hips}</p>}
+            </div>
 
-  <div>
-    <label className="block text-sm text-gray-500 mb-1" htmlFor="waist">Waist (cm)</label>
-    <Input
-      id="waist"
-      name="waist"
-      placeholder="Enter Waist"
-      onChange={handleChange}
-      value={form.waist}
-    />
-    {errors.waist && <p className="text-sm text-red-500">{errors.waist}</p>}
-  </div>
+            <div>
+              <label className="text-xs font-bold uppercase text-gray-400 block mb-1" htmlFor="ShirtLength">Shirt Length (cm)</label>
+              <Input
+                id="ShirtLength"
+                name="ShirtLength"
+                placeholder="0"
+                onChange={handleChange}
+                value={form.ShirtLength}
+                className={errors.ShirtLength ? "border-red-500 focus-visible:ring-red-500" : ""}
+              />
+              {errors.ShirtLength && <p className="text-[10px] text-red-500 mt-1">{errors.ShirtLength}</p>}
+            </div>
 
-  <div>
-    <label className="block text-sm text-gray-500 mb-1" htmlFor="Hips">Hips (cm)</label>
-    <Input
-      id="Hips"
-      name="Hips"
-      placeholder="Enter Hips"
-      onChange={handleChange}
-      value={form.Hips}
-    />
-    {errors.Hips && <p className="text-sm text-red-500">{errors.Hips}</p>}
-  </div>
+            <div>
+              <label className="text-xs font-bold uppercase text-gray-400 block mb-1" htmlFor="SkirtLength">Skirt Length (cm)</label>
+              <Input
+                id="SkirtLength"
+                name="SkirtLength"
+                placeholder="0"
+                onChange={handleChange}
+                value={form.SkirtLength}
+                className={errors.SkirtLength ? "border-red-500 focus-visible:ring-red-500" : ""}
+              />
+              {errors.SkirtLength && <p className="text-[10px] text-red-500 mt-1">{errors.SkirtLength}</p>}
+            </div>
 
-  <div>
-    <label className="block text-sm text-gray-500 mb-1" htmlFor="ShirtLength">Shirt Length (cm)</label>
-    <Input
-      id="ShirtLength"
-      name="ShirtLength"
-      placeholder="Enter Shirt Length"
-      onChange={handleChange}
-      value={form.ShirtLength}
-    />
-    {errors.ShirtLength && <p className="text-sm text-red-500">{errors.ShirtLength}</p>}
-  </div>
+            <div>
+              <label className="text-xs font-bold uppercase text-gray-400 block mb-1" htmlFor="SleeveLength">Sleeve Length (cm)</label>
+              <Input
+                id="SleeveLength"
+                name="SleeveLength"
+                placeholder="0"
+                onChange={handleChange}
+                value={form.SleeveLength}
+                className={errors.SleeveLength ? "border-red-500 focus-visible:ring-red-500" : ""}
+              />
+              {errors.SleeveLength && <p className="text-[10px] text-red-500 mt-1">{errors.SleeveLength}</p>}
+            </div>
 
-  <div>
-    <label className="block text-sm text-gray-500 mb-1" htmlFor="SkirtLength">Skirt Length (cm)</label>
-    <Input
-      id="SkirtLength"
-      name="SkirtLength"
-      placeholder="Enter Skirt Length"
-      onChange={handleChange}
-      value={form.SkirtLength}
-    />
-    {errors.SkirtLength && <p className="text-sm text-red-500">{errors.SkirtLength}</p>}
-  </div>
+            <div>
+              <label className="text-xs font-bold uppercase text-gray-400 block mb-1" htmlFor="SleeveWidth">Sleeve Width (cm)</label>
+              <Input
+                id="SleeveWidth"
+                name="SleeveWidth"
+                placeholder="0"
+                onChange={handleChange}
+                value={form.SleeveWidth}
+                className={errors.SleeveWidth ? "border-red-500 focus-visible:ring-red-500" : ""}
+              />
+              {errors.SleeveWidth && <p className="text-[10px] text-red-500 mt-1">{errors.SleeveWidth}</p>}
+            </div>
 
-  <div>
-    <label className="block text-sm text-gray-500 mb-1" htmlFor="SleeveLength">Sleeve Length (cm)</label>
-    <Input
-      id="SleeveLength"
-      name="SleeveLength"
-      placeholder="Enter Sleeve Length"
-      onChange={handleChange}
-      value={form.SleeveLength}
-    />
-    {errors.SleeveLength && <p className="text-sm text-red-500">{errors.SleeveLength}</p>}
-  </div>
+            <div>
+              <label className="text-xs font-bold uppercase text-gray-400 block mb-1" htmlFor="ShoulderToBust">Shoulder to Bust (cm)</label>
+              <Input
+                id="ShoulderToBust"
+                name="ShoulderToBust"
+                placeholder="0"
+                onChange={handleChange}
+                value={form.ShoulderToBust}
+                className={errors.ShoulderToBust ? "border-red-500 focus-visible:ring-red-500" : ""}
+              />
+              {errors.ShoulderToBust && <p className="text-[10px] text-red-500 mt-1">{errors.ShoulderToBust}</p>}
+            </div>
+          </div>
 
-  <div>
-    <label className="block text-sm text-gray-500 mb-1" htmlFor="SleeveWidth">Sleeve Width (cm)</label>
-    <Input
-      id="SleeveWidth"
-      name="SleeveWidth"
-      placeholder="Enter Sleeve Width"
-      onChange={handleChange}
-      value={form.SleeveWidth}
-    />
-    {errors.SleeveWidth && <p className="text-sm text-red-500">{errors.SleeveWidth}</p>}
-  </div>
+          <div className="mt-6">
+            <label className="text-xs font-bold uppercase text-gray-400 block mb-1">Notes</label>
+            <Textarea
+              name="notes"
+              placeholder="Any specific fit requests..."
+              onChange={handleChange}
+              value={form.notes} // Fixed: Added value so edits show up!
+              rows={3}
+            />
+            {errors.notes && <p className="text-[10px] text-red-500 mt-1">{errors.notes}</p>}
+          </div>
 
-  <div>
-    <label className="block text-sm text-gray-500 mb-1" htmlFor="ShoulderToBust">Shoulder to Bust (cm)</label>
-    <Input
-      id="ShoulderToBust"
-      name="ShoulderToBust"
-      placeholder="Enter Shoulder to Bust"
-      onChange={handleChange}
-      value={form.ShoulderToBust}
-    />
-    {errors.ShoulderToBust && <p className="text-sm text-red-500">{errors.ShoulderToBust}</p>}
-  </div>
-</div>
-
-
-      <div className="mt-4">
-        <Textarea
-          name="notes"
-          placeholder="Notes"
-          onChange={handleChange}
-        />
-        {errors.notes && <p className="text-sm text-red-500">{errors.notes}</p>}
-      </div>
-
-      <div className="flex justify-end gap-2 mt-6">
-        <Button variant="ghost" onClick={onClose}>
-          Cancel
-        </Button>
-        <Button onClick={handleSubmit}>
-          {measurementToEdit ? "Save Changes" : "Save"}
-        </Button>
-      </div>
-    </div>
-  </div>
-);
+          <div className="flex justify-end gap-3 mt-8 pt-6 border-t">
+            <Button variant="ghost" onClick={onClose} disabled={isSubmitting}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleSubmit} 
+              disabled={isSubmitting}
+              className="bg-[#1E2024] text-white hover:opacity-90 shadow-sm"
+            >
+              {isSubmitting ? "Saving..." : (measurementToEdit ? "Save Changes" : "Save Measurements")}
+            </Button>
+          </div>
+        </>
+      )}
+    </BaseModal>
+  );
 }

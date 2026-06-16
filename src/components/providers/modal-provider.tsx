@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useModal } from "@/hooks/use-modal-store";
 import { AddClientModal } from "@/components/AddClientModal";
 import AppointmentModal from "@/components/AppointmentModal";
@@ -10,6 +11,7 @@ import AddExpenseModal from "@/components/AddExpenseModal"; // Check this path m
 export const ModalProvider = () => {
   const { isOpen, onClose, type, data } = useModal();
   const [projects, setProjects] = useState<any[]>([]);
+  const router = useRouter();
 
   useEffect(() => {
     if (type === "addExpense" && projects.length === 0) {
@@ -41,8 +43,21 @@ export const ModalProvider = () => {
           onClose={onClose} 
           selectedDate={new Date()} 
           selectedTime={null}
-          onSave={() => {
-            onClose();
+          initialData={data?.initialData} // <--- JUST ADD THIS ONE LINE HERE
+          onSave={async (appointmentData) => {
+            // ONLY do the fetching here. Don't close or refresh!
+            const response = await fetch('/api/appointments', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(appointmentData)
+            });
+
+            if (!response.ok) {
+              const errorText = await response.text();
+              console.error("Server Error Details:", errorText);
+              throw new Error("Server failed to respond correctly");
+            }
+            // Let the modal handle the success message now!
           }} 
         />
       )}
@@ -53,7 +68,7 @@ export const ModalProvider = () => {
            onClose={onClose} 
            onSave={() => {
              onClose();
-             window.location.reload(); 
+             router.refresh();
            }} 
         />
       )}

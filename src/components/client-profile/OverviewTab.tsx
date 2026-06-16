@@ -5,15 +5,15 @@ import { FamilyFinancialSummary } from "@/components/client-profile/FamilyFinanc
 import { FamilyInvoiceBreakdown } from "@/components/FamilyInvoiceBreakdown";
 import { prisma } from "@/lib/prisma";
 import { ClientProfileData } from "./InformationTab";
+import { useModal } from "@/hooks/use-modal-store";
 
 interface OverviewTabProps {
   client: ClientProfileData;
   onAddExpense: () => void;
-  onAddPayment: () => void;
 }
 
-export function OverviewTab({ client, onAddExpense, onAddPayment}:  OverviewTabProps ) {
-
+export function OverviewTab({ client, onAddExpense}:  OverviewTabProps ) {
+const { onOpen } = useModal();
     return(
         <div className="space-y-6">
          {/* Top Summary Cards stay as they are for quick glance */}
@@ -59,7 +59,7 @@ export function OverviewTab({ client, onAddExpense, onAddPayment}:  OverviewTabP
                           <h3 className="font-bold text-slate-800">Payment Records</h3>
                         </div>
                         <Button
-                          onClick={onAddPayment}
+                          onClick={() => onOpen("addPayment", { clientId: client.id })}
                           variant="outline"
                           size="sm"
                           className="bg-emerald-50 text-emerald-700 border-emerald-100 hover:bg-emerald-100"

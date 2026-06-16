@@ -20,11 +20,12 @@ import { EditClientModal } from "@/components/EditClientModal";
 import { AddMemberModal } from "@/components/AddMemberModal";
 import { AddPaymentModal } from "@/components/AddPaymentModal";
 import AddExpenseModal from "./AddExpenseModal";
-import AppointmentModal from "@/components/AppointmentModal";
 
 // Actions & Types
 import { saveAppointmentAction, cancelAppointmentAction } from "@/lib/actions/appointments";
 import { ClientProfileData, ClientProfilePageProps } from "../types";
+
+import { useModal } from "@/hooks/use-modal-store";
 
 const deepNavy = "#1E2024";
 const lightGrayBackground = "#F7F7F7";
@@ -38,15 +39,13 @@ export function ClientProfilePage({
 
   // 1. Core Modal Visibility State
   const [isEditOpen, setIsEditOpen] = useState(false);
-  const [isAppointmentModalOpen, setIsAppointmentModalOpen] = useState(false);
-  const [isPaymentOpen, setIsPaymentOpen] = useState(false);
   const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
   const [isMeasurementOpen, setIsMeasurementOpen] = useState(false);
 
   // 2. Core Selection State (Tells the modals WHICH item to edit/add to)
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
-  const [editingAppointment, setEditingAppointment] = useState<any>(null);
+  const { onOpen } = useModal();
 
   // 3. Appointment API Actions
   const handleCancelAppointment = async (appointmentId: number) => {
@@ -55,16 +54,7 @@ export function ClientProfilePage({
     if (response.ok) router.refresh();
   };
 
-  const handleSaveAppointment = async (appointmentData: any) => {
-    const response = await saveAppointmentAction(appointmentData, client.id, client.name);
-    if (response.ok) {
-      setIsAppointmentModalOpen(false);
-      setEditingAppointment(null);
-      router.refresh();
-    } else {
-      alert("Something went wrong saving the appointment.");
-    }
-  };
+  
 
   return (
     // Apply the light gray background to the container
@@ -88,7 +78,6 @@ export function ClientProfilePage({
         <ClientHeader
           client={client}
           onEdit={() => setIsEditOpen(true)}
-          onBook={() => setIsAppointmentModalOpen(true)}
         />
 
         {/* Tabs Navigation */}
@@ -126,9 +115,10 @@ export function ClientProfilePage({
                 setSelectedProjectId(null); // Global family expense
                 setIsExpenseModalOpen(true);
               }}
-              onAddPayment={() => setIsPaymentOpen(true)}
+              // I DELETED THE onAddPayment LINE HERE!
             />
           </TabsContent>
+          
 
           {/* 2. GOWN Tabs (Dynamic) */}
           {client.projects.map((project) => (
@@ -166,7 +156,21 @@ export function ClientProfilePage({
               <div className="border border-gray-100 rounded-xl overflow-hidden">
                 <AppointmentList
                   appointments={appointments}
-                  onEdit={setEditingAppointment}
+                  onEdit={(apt) => {
+                    onOpen("bookAppointment", {
+                      initialData: {
+                        id: apt.id,                 
+                        title: client.name,         // Keeps the client name locked in
+                        start: apt.start || apt.date, 
+                        end: apt.end,
+                        resource: {
+                          clientId: client.id,
+                          notes: apt.notes,
+                          service: { name: apt.service?.name || (apt as any).serviceName }
+                        }
+                      }
+                    });
+                  }}
                   onCancel={handleCancelAppointment}
                 />
               </div>
@@ -176,15 +180,6 @@ export function ClientProfilePage({
         </Tabs>
 
         {/* --- Modals Section --- */}
-
-        {isPaymentOpen && (
-          <AddPaymentModal
-            clientId={client.id} // Passing the ID locks the modal to this client
-            allClients={[]} // Not needed when clientId is present
-            onClose={() => setIsPaymentOpen(false)}
-            onSave={() => window.location.reload()}
-          />
-        )}
 
         {isMeasurementOpen && selectedProjectId && (
           <AddMeasurementModal
@@ -227,34 +222,7 @@ export function ClientProfilePage({
         />
       )}
 
-      {/* --- The Combined Appointment Modal --- */}
-      {(isAppointmentModalOpen || editingAppointment) && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4">
-          <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden">
-            <AppointmentModal
-              isOpen={!!(isAppointmentModalOpen || editingAppointment)}
-              onClose={() => {
-                setIsAppointmentModalOpen(false);
-                setEditingAppointment(null); // Clear the edit state when closing
-              }}
-              selectedDate={new Date()}
-              selectedTime="10:00"
-              onSave={handleSaveAppointment}
-              // If editingAppointment has data, the form will auto-fill!
-              initialData={editingAppointment ? {
-                id: editingAppointment.id,
-                title: client.name,
-                start: editingAppointment.start || editingAppointment.date,
-                end: editingAppointment.end,
-                resource: {
-                  notes: editingAppointment.notes,
-                  service: { name: editingAppointment.service?.name }
-                }
-              } : null}
-            />
-          </div>
-        </div>
-      )}
+    
     </div>
   );
 }

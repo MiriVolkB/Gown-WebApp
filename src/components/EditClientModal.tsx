@@ -5,13 +5,14 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { measurementSchema } from "@/lib/validation/measurement";
+import { CheckCircle2 } from "lucide-react"; // 1. Added checkmark
+import { BaseModal } from "@/components/BaseModal"; // 2. Added BaseModal
 import { ClientProfileData } from "@/types";
 
 interface EditClientModalProps {
     client: ClientProfileData;
     onClose: () => void;
-    onSave?: () => void; // optional callback
+    onSave?: () => void;
 }
 
 export function EditClientModal({ client, onClose, onSave }: EditClientModalProps) {
@@ -25,6 +26,7 @@ export function EditClientModal({ client, onClose, onSave }: EditClientModalProp
         Recommended: "",
     });
     const [loading, setLoading] = useState(false);
+    const [showSuccess, setShowSuccess] = useState(false); // 3. Added success state
 
     // Prefill form on mount
     useEffect(() => {
@@ -43,8 +45,7 @@ export function EditClientModal({ client, onClose, onSave }: EditClientModalProp
             Recommended: client.Recommended ?? "",
             notes: client.notes ?? "",
         });
-    }, [client.id]);
-
+    }, [client]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         setForm({ ...form, [e.target.name]: e.target.value });
@@ -63,7 +64,6 @@ export function EditClientModal({ client, onClose, onSave }: EditClientModalProp
                     dueDate: form.dueDate ? new Date(form.dueDate).toISOString() : undefined,
                     WeddingDate: form.WeddingDate ? new Date(form.WeddingDate).toISOString() : undefined,
                 }),
-
             });
 
             if (!res.ok) {
@@ -72,10 +72,14 @@ export function EditClientModal({ client, onClose, onSave }: EditClientModalProp
                 throw new Error(errorData.message || "Update failed");
             }
 
-            router.refresh();
+            // 4. Trigger success screen, wait 2 seconds, then execute close/refresh!
+            setShowSuccess(true);
+            setTimeout(() => {
+                router.refresh();
+                if (onSave) onSave();
+                onClose();
+            }, 2000);
 
-            if (onSave) onSave();
-            onClose();
         } catch (err: unknown) {
             console.error("Update error:", err);
             let message = "Failed to update client";
@@ -89,52 +93,68 @@ export function EditClientModal({ client, onClose, onSave }: EditClientModalProp
     };
 
     return (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-            <div className="bg-white rounded-xl p-6 w-full max-w-lg shadow-lg">
-                <h3 className="text-lg font-medium mb-4">Edit Client Information</h3>
-
-                <div className="grid grid-cols-2 gap-4">
-                    <div>
-                        <label className="text-sm text-gray-500">Family Name</label>
-                        <Input name="name" value={form.name} onChange={handleChange} />
+        // 5. Replaced messy HTML with BaseModal wrapper
+        <BaseModal
+            title={showSuccess ? "Success" : "Edit Client Information"}
+            onClose={onClose}
+        >
+            {showSuccess ? (
+                <div className="flex flex-col items-center justify-center text-center space-y-4 min-h-[300px]">
+                    <div className="animate-bounce">
+                        <CheckCircle2 className="h-20 w-20 text-emerald-500" />
                     </div>
-                    <div>
-                        <label className="text-sm text-gray-500">Email</label>
-                        <Input name="email" value={form.email} onChange={handleChange} />
-                    </div>
-                    <div>
-                        <label className="text-sm text-gray-500">Phone</label>
-                        <Input name="phone" value={form.phone} onChange={handleChange} />
-                    </div>
-                    <div>
-                        <label className="text-sm text-gray-500">Due Date</label>
-                        <Input type="date" name="dueDate" value={form.dueDate} onChange={handleChange} />
-                    </div>
-                    <div>
-                        <label className="text-sm text-gray-500">Wedding Date</label>
-                        <Input type="date" name="WeddingDate" value={form.WeddingDate} onChange={handleChange} />
-                    </div>
-                    
-                    <div className="col-span-2">
-                        <label className="text-xs font-semibold uppercase text-gray-400">Recommended By</label>
-                        <Input name="Recommended" value={form.Recommended} onChange={handleChange} />
-                    </div>
-                    
-            
+                    <h2 className="text-2xl font-bold text-gray-900">Information Updated!</h2>
+                    <p className="text-gray-500 text-sm">The client's profile has been saved.</p>
                 </div>
+            ) : (
+                <>
+                    <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="text-xs font-bold uppercase text-gray-400 block mb-1">Family Name</label>
+                                <Input name="name" value={form.name} onChange={handleChange} />
+                            </div>
+                            <div>
+                                <label className="text-xs font-bold uppercase text-gray-400 block mb-1">Email</label>
+                                <Input name="email" value={form.email} onChange={handleChange} />
+                            </div>
+                            <div>
+                                <label className="text-xs font-bold uppercase text-gray-400 block mb-1">Phone</label>
+                                <Input name="phone" value={form.phone} onChange={handleChange} />
+                            </div>
+                            <div>
+                                <label className="text-xs font-bold uppercase text-gray-400 block mb-1">Due Date</label>
+                                <Input type="date" name="dueDate" value={form.dueDate} onChange={handleChange} />
+                            </div>
+                            <div>
+                                <label className="text-xs font-bold uppercase text-gray-400 block mb-1">Wedding Date</label>
+                                <Input type="date" name="WeddingDate" value={form.WeddingDate} onChange={handleChange} />
+                            </div>
+                            
+                            <div className="col-span-2">
+                                <label className="text-xs font-bold uppercase text-gray-400 block mb-1">Recommended By</label>
+                                <Input name="Recommended" value={form.Recommended} onChange={handleChange} />
+                            </div>
+                        </div>
 
-                <div className="mt-4">
-                    <label className="text-sm text-gray-500">Notes</label>
-                    <Textarea name="notes" value={form.notes} onChange={handleChange} />
-                </div>
+                        <div>
+                            <label className="text-xs font-bold uppercase text-gray-400 block mb-1">Notes</label>
+                            <Textarea name="notes" value={form.notes} onChange={handleChange} rows={3} />
+                        </div>
+                    </div>
 
-                <div className="flex justify-end gap-2 mt-6">
-                    <Button variant="ghost" onClick={onClose}>Cancel</Button>
-                    <Button onClick={handleSubmit} disabled={loading}>
-                        {loading ? "Saving..." : "Save Family Info"}
-                    </Button>
-                </div>
-            </div>
-        </div>
+                    <div className="flex justify-end gap-3 mt-8 pt-6 border-t">
+                        <Button variant="ghost" onClick={onClose} disabled={loading}>Cancel</Button>
+                        <Button 
+                            onClick={handleSubmit} 
+                            disabled={loading}
+                            className="bg-[#1E2024] text-white hover:opacity-90 shadow-sm"
+                        >
+                            {loading ? "Saving..." : "Save Family Info"}
+                        </Button>
+                    </div>
+                </>
+            )}
+        </BaseModal>
     );
 }
