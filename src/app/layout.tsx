@@ -1,7 +1,7 @@
 // src/app/layout.tsx
 import type { Metadata } from "next";
 
-import "@/app/globals.css";
+import "./globals.css";
 import Sidebar from "@/components/Sidebar"; 
 import Header from "@/components/Header";
 
@@ -34,8 +34,8 @@ export default function RootLayout({
         {/* 2. Content Area Wrapper */}
         <ClientProvidersLayout>
           {/* CHANGED: Matches the new sidebar widths! (md:ml-64 lg:ml-80) */}
-          <div className="flex flex-col flex-1 md:pl-64 lg:ml-80 min-h-screen w-full transition-all duration-300">
-            <ModalProvider />
+<div className="flex flex-col flex-1 md:ml-64 lg:ml-80 min-h-screen w-full transition-all duration-300">
+              <ModalProvider />
             
             {/* 3. Global App Header */}
             <Header />

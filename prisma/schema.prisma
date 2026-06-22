@@ -9,102 +9,94 @@ datasource db {
 }
 
 model Client {
-  id            Int             @id @default(autoincrement())
-  name          String
-  email         String?
-  phone         String
-  WeddingDate   DateTime?
-  dueDate      DateTime?  @map("needGownBy")
-  Recommended   String?
-  notes         String?
-
-  projects     Project[]     
+  id           Int           @id @default(autoincrement())
+  name         String
+  email        String?
+  phone        String
+  WeddingDate  DateTime?
+  Recommended  String?
+  notes        String?
+  createdAt    DateTime      @default(now())
+  dueDate      DateTime?     @map("needGownBy")
+  appointments Appointment[]
   payments     Payment[]
-  appointments  Appointment[]
-  createdAt     DateTime        @default(now())
+  projects     Project[]
 }
 
 model Measurement {
-  id        Int      @id @default(autoincrement())
-  projectId  Int
-  date      DateTime @default(now())
-  Bust      Float
-  waist     Float
-  Hips     Float
-  ShirtLength     Float
-  SkirtLength     Float
-  SleeveLength     Float
-  SleeveWidth     Float
-  ShoulderToBust   Float
-  notes     String?
-  project   Project  @relation(fields: [projectId], references: [id])
+  id             Int      @id @default(autoincrement())
+  date           DateTime @default(now())
+  Bust           Float
+  waist          Float
+  Hips           Float
+  ShirtLength    Float
+  SkirtLength    Float
+  SleeveLength   Float
+  SleeveWidth    Float
+  ShoulderToBust Float
+  notes          String?
+  projectId      Int
+  project        Project  @relation(fields: [projectId], references: [id])
 }
 
 model Appointment {
-  id              Int        @id @default(autoincrement())
+  id              Int      @id @default(autoincrement())
   clientId        Int
-  client          Client     @relation(fields: [clientId], references: [id])
-  serviceId       Int
-  service         Service    @relation(fields: [serviceId], references: [id])
-  start           DateTime   // start date + time
-  end             DateTime   // end date + time
-  durationMinutes Int        // store actual duration, default from service but editable
-  status          String     @default("SCHEDULED") 
-  date            DateTime
   notes           String?
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
+  createdAt       DateTime @default(now())
+  durationMinutes Int
+  end             DateTime
+  serviceId       Int
+  start           DateTime
+  status          String   @default("SCHEDULED")
+  updatedAt       DateTime @updatedAt
+  date            DateTime
+  client          Client   @relation(fields: [clientId], references: [id])
+  service         Service  @relation(fields: [serviceId], references: [id])
 }
 
 model Service {
-  id                 Int             @id @default(autoincrement())
-  name               String          // "First fitting", "Second fitting", "Pickup"
-  defaultDurationMin Int             // 30, 45, 60, etc.
-  color              String?         // Optional: hex color for calendar
-  active             Boolean         @default(true)
-
+  id                 Int           @id @default(autoincrement())
+  name               String
+  defaultDurationMin Int
+  color              String?
+  active             Boolean       @default(true)
   appointments       Appointment[]
 }
 
 model Project {
   id           Int           @id @default(autoincrement())
   clientId     Int
-  client       Client        @relation(fields: [clientId], references: [id])
-  
-  memberName   String        // e.g., "Sarah"
-  orderType    OrderType     @default(RENTAL) 
-  isPickedUp Boolean @default(false)
-  
-  
-  // FIXED BUT FLEXIBLE: Defaulted in UI, but saved here so you can change it
-  price        Float         
-  
+  memberName   String
+  orderType    OrderType     @default(RENTAL)
+  price        Float
+  isPickedUp   Boolean       @default(false)
+  expenses     Expense[]
   measurements Measurement[]
-  expenses     Expense[]     
+  client       Client        @relation(fields: [clientId], references: [id])
+}
+
+model Expense {
+  id        Int      @id @default(autoincrement())
+  projectId Int
+  type      String
+  amount    Float
+  date      DateTime @default(now())
+  project   Project  @relation(fields: [projectId], references: [id])
+}
+
+model Payment {
+  id       Int      @id @default(autoincrement())
+  clientId Int
+  amount   Float
+  date     DateTime @default(now())
+  note     String?
+  method   String   @default("cash")
+  client   Client   @relation(fields: [clientId], references: [id])
 }
 
 enum OrderType {
   CUSTOM_MAKE
   RENTAL
   CUSTOM_MAKE_RENTAL
-}
-
-model Expense {
-  id        Int      @id @default(autoincrement())
-  projectId Int
-  project   Project  @relation(fields: [projectId], references: [id])
-  
-  type      String   // "Dying", "Beading", etc.
-  amount    Float
-  date      DateTime @default(now())
-}
-
-model Payment {
-  id        Int      @id @default(autoincrement())
-  clientId  Int
-  client    Client   @relation(fields: [clientId], references: [id])
-  amount    Float    
-  method    String   @default("cash") // new field to store payment method (CASH, TRANSFER, BIT, etc.)
-  date      DateTime @default(now())
-  note      String?  
 }
