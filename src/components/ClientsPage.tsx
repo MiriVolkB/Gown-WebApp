@@ -1,8 +1,10 @@
 'use client';
+
+import { useState, useTransition } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { ClientListItem } from '../types';
-import { Search } from 'lucide-react';
+import { Search, Loader2 } from 'lucide-react';
 import { calculateFamilyFinances } from '../lib/calculations';
 
 interface ClientsPageProps {
@@ -13,8 +15,6 @@ interface ClientsPageProps {
   onNewClient: () => void;
 }
 
-// Define the Deep Navy color as a Tailwind custom class for reuse
-// deep-navy: #1E2024
 const deepNavy = '#1E2024';
 
 export function ClientsPage({
@@ -24,104 +24,130 @@ export function ClientsPage({
   onClientClick,
   onNewClient,
 }: ClientsPageProps) {
-if (!clients || !Array.isArray(clients)) {
-  return <div>Loading clients...</div>; 
-  // Or return null if you want to hide the component
-}
+  // UI State for instant feedback
+  const [loadingClientId, setLoadingClientId] = useState<string | null>(null);
+  
+  // React 18 Transition Hook for non-blocking navigation
+  const [isPending, startTransition] = useTransition();
 
-  const filteredClients = (clients ?? []).filter(
+  if (!clients || !Array.isArray(clients)) {
+    return (
+      <div className="flex flex-col justify-center items-center min-h-[60vh] text-slate-500 animate-in fade-in">
+        <Loader2 className="w-8 h-8 animate-spin mb-4 text-blue-600" />
+        <span className="text-sm font-medium uppercase tracking-widest">Loading Database...</span>
+      </div>
+    ); 
+  }
+
+  const filteredClients = clients.filter(
     (client) =>
       client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       client.phone.includes(searchQuery)
   );
 
+  const handleClientClick = (clientId: string) => {
+    // 1. Instantly show the loading spinner on the card
+    setLoadingClientId(clientId); 
+    
+    // 2. Push the heavy routing task to the background so the UI doesn't freeze
+    startTransition(() => {
+      onClientClick(clientId);
+    });
+  };
+
   return (
-    // 1. Set the page background to light gray (#F7F7F7)
-    <div className="min-h-screen bg-[#F7F7F7] p-8">
-      <div className="max-w-6xl mx-auto px-6 py-4">
+    <div className="min-h-screen bg-[#F7F7F7] p-4 sm:p-8">
+      <div className="max-w-6xl mx-auto py-4">
+        
         {/* Header Section */}
-        <div className="flex items-center justify-between mb-8">
-          {/* 2. 'Clients' title: More elegant font (using a more pronounced font-weight and tracking) and Deep Navy color */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
           <h2
             className="text-4xl font-light tracking-wide"
-            style={{ color: deepNavy, fontFamily: 'serif' }} // Using serif/light font for "elegant" look
+            style={{ color: deepNavy, fontFamily: "'Playfair Display', serif" }}
           >
             Clients
           </h2>
-          {/* 3. 'New Client' button: Deep Navy background and white text */}
           <Button
             onClick={onNewClient}
-            className="px-5 py-3 rounded-lg text-sm font-medium shadow-md transition h-10"
+            className="px-6 py-3 rounded-lg text-sm font-bold shadow-md transition-all h-11 hover:opacity-90 w-full sm:w-auto"
             style={{ backgroundColor: deepNavy, color: 'white' }}
           >
             New Client
           </Button>
         </div>
 
-        {/* Search Box - Keeping the clean look */}
+        {/* Search Box */}
         <div className="mb-8">
           <div className="relative max-w-lg">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
               type="text"
               placeholder="Search by name or phone..."
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
-              className="h-12 pl-12 rounded-lg border border-gray-300 focus:border-gray-500 focus:ring-0 text-base shadow-sm"
+              className="h-12 pl-12 rounded-xl border border-gray-200 focus:border-slate-400 focus:ring-0 text-base shadow-sm bg-white"
             />
           </div>
         </div>
 
-        {/* Clients Grid - Matches card look, uses Deep Navy for client names */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        {/* Clients Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
           {filteredClients.map((client) => {
-  // 1. Run the math for this client
-  const { balance, isFullyPaid } = calculateFamilyFinances(client);
-  const gownCount = client.projects?.length || 0;
+            const { balance, isFullyPaid } = calculateFamilyFinances(client);
+            const gownCount = client.projects?.length || 0;
+            const isLoading = loadingClientId === String(client.id);
 
-  return (
-    <button
-      key={client.id}
-      onClick={() => onClientClick(String(client.id))}
-      // Changed h-32 to min-h-[140px] and added flex-col to stack data
-      className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm hover:shadow-lg transition text-center flex flex-col items-center justify-center space-y-2 relative overflow-hidden"
-    >
-      {/* 2. Top corner badge for gown count */}
-      <span className="absolute top-3 right-3 text-[10px] uppercase tracking-wider text-gray-400 font-semibold">
-        {gownCount} {gownCount === 1 ? 'Gown' : 'Gowns'}
-      </span>
+            return (
+              <button
+                key={client.id}
+                onClick={() => handleClientClick(String(client.id))}
+                disabled={isLoading || loadingClientId !== null}
+                className={`bg-white border rounded-xl p-6 shadow-sm transition-all text-center flex flex-col items-center justify-center space-y-2 relative overflow-hidden min-h-[140px] group
+                  ${isLoading ? 'border-blue-300 ring-2 ring-blue-100' : 'border-gray-100 hover:shadow-md hover:border-gray-200'}
+                  ${loadingClientId !== null && !isLoading ? 'opacity-40 grayscale-[50%] cursor-not-allowed' : ''}
+                `}
+              >
+                {/* Instant Loading Overlay */}
+                {isLoading && (
+                  <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white/90 backdrop-blur-[2px] animate-in fade-in">
+                    <Loader2 className="w-7 h-7 animate-spin text-blue-600 mb-2" />
+                    <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">
+                      Opening...
+                    </span>
+                  </div>
+                )}
 
-      {/* 3. Client Name (Deep Navy) */}
-      <div
-        className="font-bold text-lg leading-tight"
-        style={{ color: deepNavy }}
-      >
-        {client.name}
-      </div>
+                {/* Card Content */}
+                <span className="absolute top-3 right-3 text-[10px] uppercase tracking-wider text-gray-300 font-bold group-hover:text-gray-400 transition-colors">
+                  {gownCount} {gownCount === 1 ? 'Gown' : 'Gowns'}
+                </span>
 
-      {/* 4. Financial Status */}
-      <div className={`text-sm font-medium ${isFullyPaid ? 'text-green-600' : 'text-rose-600'}`}>
-        {isFullyPaid ? (
-          'Fully Paid'
-        ) : (
-          <span>Owes {balance} NIS</span>
-        )}
-      </div>
+                <div
+                  className="font-bold text-xl leading-tight tracking-tight"
+                  style={{ color: deepNavy }}
+                >
+                  {client.name}
+                </div>
 
-      {/* 5. Warning Stripe if picked up but unpaid */}
-      {/* (Assumes you have a field for this, otherwise remove) */}
-      {!isFullyPaid && client.projects?.some(p => p.isPickedUp) && (
-        <div className="absolute bottom-0 left-0 right-0 h-1 bg-rose-500" title="Picked up but not paid!" />
-      )}
-    </button>
-  );
-})}
+                <div className={`text-xs uppercase tracking-widest font-bold px-3 py-1 rounded-full ${
+                  isFullyPaid ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
+                }`}>
+                  {isFullyPaid ? 'Fully Paid' : `Owes ${balance} NIS`}
+                </div>
+
+                {/* Warning Stripe */}
+                {!isFullyPaid && client.projects?.some(p => p.isPickedUp) && (
+                  <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-rose-500" title="Picked up but not paid!" />
+                )}
+              </button>
+            );
+          })}
         </div>
 
         {/* Empty State */}
         {filteredClients.length === 0 && (
-          <div className="text-center py-12 text-gray-500">
-            No clients found matching your search.
+          <div className="text-center py-16 bg-white rounded-xl border border-dashed border-gray-200 mt-4">
+            <p className="text-gray-400 text-sm italic">No clients found matching "{searchQuery}"</p>
           </div>
         )}
       </div>

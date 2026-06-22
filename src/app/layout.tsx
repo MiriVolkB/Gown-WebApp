@@ -1,30 +1,12 @@
 // src/app/layout.tsx
 import type { Metadata } from "next";
 
-import "./globals.css"; // Change to relative path
+import "@/app/globals.css";
 import Sidebar from "@/components/Sidebar"; 
 import Header from "@/components/Header";
 
-//import { Geist, Geist_Mono } from "next/font/google";
-//import { Playfair_Display } from "next/font/google";
 import { ClientProvidersLayout } from "./ClientProvidersLayout"; 
 import { ModalProvider } from "@/components/providers/modal-provider";
-
-// const geistSans = Geist({
-//   variable: "--font-geist-sans",
-//   subsets: ["latin"],
-// });
-
-// const geistMono = Geist_Mono({
-//   variable: "--font-geist-mono",
-//   subsets: ["latin"],
-// });
-
-// const playfair = Playfair_Display({
-//   subsets: ["latin"],
-//   variable: "--font-playfair",
-// });
-
 
 export const metadata: Metadata = {
   title: "Rachelli Custom Gowns",
@@ -51,14 +33,14 @@ export default function RootLayout({
 
         {/* 2. Content Area Wrapper */}
         <ClientProvidersLayout>
-          {/* CHANGED: ml-80 is now md:ml-80. It only pushes content over on desktop. */}
-          <div className="flex flex-col flex-1 md:ml-80 min-h-screen w-full">
+          {/* CHANGED: Matches the new sidebar widths! (md:ml-64 lg:ml-80) */}
+          <div className="flex flex-col flex-1 md:pl-64 lg:ml-80 min-h-screen w-full transition-all duration-300">
             <ModalProvider />
             
             {/* 3. Global App Header */}
             <Header />
 
-            {/* 4. Main content (CHANGED: p-4 on mobile, md:p-8 on desktop) */}
+            {/* 4. Main content */}
             <main className="flex-1 p-4 md:p-8">
               {children} 
             </main>

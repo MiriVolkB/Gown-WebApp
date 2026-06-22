@@ -1,4 +1,3 @@
-// src/components/Sidebar.tsx
 'use client';
 
 import React from 'react';
@@ -11,26 +10,25 @@ export default function Sidebar() {
   const pathname = usePathname();
 
   return (
-    // CHANGE 1: Darker, Richer Navy Background (bg-[#0B1120])
-    <aside className="w-80 bg-[#0B1120] text-slate-300 h-screen fixed left-0 top-0 flex flex-col border-r border-slate-800/50 shadow-2xl z-50">
+    // CHANGE 1: Responsive Width (w-64 on medium/small, lg:w-80 on large monitors)
+    <aside className="w-64 lg:w-80 bg-[#0B1120] text-slate-300 h-screen fixed left-0 top-0 flex flex-col border-r border-slate-800/50 shadow-2xl z-50 transition-all duration-300">
       
-      {/* CHANGE 2: Bigger Logo Area (h-64) and LESS padding (p-0) so it fills the space */}
-      <div className="h-64 flex items-center justify-center border-b border-slate-800/50 relative bg-[#0B1120]">
+      {/* CHANGE 2: Responsive Logo Height (h-48 on laptop, lg:h-64 on desktop) */}
+      <div className="h-48 lg:h-64 flex items-center justify-center border-b border-slate-800/50 relative bg-[#0B1120] transition-all duration-300">
         <div className="relative w-full h-full">
             <Image 
               src="/logo.jpg" 
               alt="Rachelli Custom Gowns" 
               fill
-              className="object-cover" // object-cover makes it fill the box completely
+              className="object-cover" 
               priority 
             />
-            {/* Optional: A subtle gradient overlay at the bottom to blend it into the menu */}
             <div className="absolute bottom-0 left-0 w-full h-12 bg-gradient-to-t from-[#0B1120] to-transparent"></div>
         </div>
       </div>
 
-      {/* Navigation Menu */}
-      <nav className="flex-1 px-6 py-8 space-y-4"> 
+      {/* Navigation Menu: Tightened padding (px-4 laptop, lg:px-6 desktop) */}
+      <nav className="flex-1 px-4 lg:px-6 py-8 space-y-2 lg:space-y-4 transition-all"> 
         <NavItem href="/" icon={<Home size={22} />} label="Home" active={pathname === '/'} />
         <NavItem href="/calendar" icon={<Calendar size={22} />} label="Calendar" active={pathname === '/calendar'} />
         <NavItem href="/clients" icon={<Users size={22} />} label="Clients" active={pathname === '/clients'} />
@@ -38,30 +36,30 @@ export default function Sidebar() {
       </nav>
 
       {/* Bottom Settings */}
-      <div className="p-6 border-t border-slate-800/50">
+      <div className="p-4 lg:p-6 border-t border-slate-800/50">
          <NavItem href="/settings" icon={<Settings size={22} />} label="Settings" active={pathname === '/settings'} />
       </div>
     </aside>
   );
 }
 
-// CHANGE 3: "Gold" Active State
 function NavItem({ href, icon, label, active }: any) {
   return (
     <Link 
       href={href} 
-      className={`flex items-center space-x-4 px-5 py-4 rounded-xl transition-all duration-300 group ${
+      // CHANGE 3: Responsive NavItem padding and font size
+      className={`flex items-center space-x-3 lg:space-x-4 px-3 lg:px-5 py-3 lg:py-4 rounded-xl transition-all duration-300 group ${
         active 
-          ? 'bg-white/10 text-white shadow-lg border-l-4 border-[#C5A059]' // Gold border accent
+          ? 'bg-white/10 text-white shadow-lg border-l-4 border-[#C5A059]' 
           : 'hover:bg-white/5 hover:text-white'
       }`}
     >
-      {/* Icon color changes on active */}
       <span className={active ? "text-[#C5A059]" : "text-slate-400 group-hover:text-white"}>
         {icon}
       </span>
       
-      <span className={`text-base tracking-wide ${active ? "font-bold" : "font-medium"}`}>
+      {/* Label shrinks slightly on laptop screens */}
+      <span className={`text-sm lg:text-base tracking-wide ${active ? "font-bold" : "font-medium"}`}>
         {label}
       </span>
     </Link>
