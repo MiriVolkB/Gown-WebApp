@@ -26,6 +26,7 @@ export type ClientListItem = Prisma.ClientGetPayload<{
       };
     };
     payments: true;
+    appointments: true; // 🗓️ Added this so the main page can compute the next appointment
   };
 }>;
 

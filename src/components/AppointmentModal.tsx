@@ -1,11 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { ChevronDown, CheckCircle2, AlertCircle } from 'lucide-react'; // Removed X since BaseModal handles it!
+import { ChevronDown, CheckCircle2, AlertCircle } from 'lucide-react'; 
 import { format } from 'date-fns';
 import { useRouter } from "next/navigation";
-
-// 1. ADD THIS IMPORT
 import { BaseModal } from "@/components/BaseModal"; 
 
 const SERVICE_OPTIONS = [
@@ -29,6 +27,7 @@ export default function AppointmentModal({ isOpen, onClose, selectedDate, select
   const router = useRouter();
   const [clientName, setClientName] = useState('');
   const [clientId, setClientId] = useState<number | null>(null);
+  const [clientPhone, setClientPhone] = useState(''); // 📞 1. Added phone number state
   const [serviceName, setServiceName] = useState(SERVICE_OPTIONS[0]);
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
@@ -59,6 +58,7 @@ export default function AppointmentModal({ isOpen, onClose, selectedDate, select
       if (initialData) {
         setClientName(initialData.title || '');
         setClientId(initialData.resource?.clientId || null);
+        setClientPhone(initialData.resource?.clientPhone || ''); // Reset / load phone data
 
         const currentService = initialData.resource?.service?.name;
         setServiceName(SERVICE_OPTIONS.includes(currentService) ? currentService : SERVICE_OPTIONS[0]);
@@ -85,6 +85,7 @@ export default function AppointmentModal({ isOpen, onClose, selectedDate, select
       } else {
         setClientName('');
         setClientId(null);
+        setClientPhone(''); // Reset phone data
         setServiceName(SERVICE_OPTIONS[0]);
 
         if (selectedDate && !isNaN(selectedDate.getTime())) {
@@ -103,7 +104,7 @@ export default function AppointmentModal({ isOpen, onClose, selectedDate, select
   const handleClientSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     const term = e.target.value;
     setClientName(term);
-    setClientId(null);
+    setClientId(null); // Reset client ID since they are typing manually
     if (term.length > 0) {
       const matches = clients.filter(c => c.name.toLowerCase().includes(term.toLowerCase()));
       setFilteredClients(matches);
@@ -116,6 +117,7 @@ export default function AppointmentModal({ isOpen, onClose, selectedDate, select
   const selectClient = (client: any) => {
     setClientName(client.name);
     setClientId(client.id);
+    setClientPhone(client.phone || ''); // Auto-fill phone if existing client has one
     setShowClientList(false);
   };
 
@@ -153,6 +155,7 @@ export default function AppointmentModal({ isOpen, onClose, selectedDate, select
         id: initialData?.id,
         clientName,
         clientId,
+        clientPhone, // 📞 2. Sending phone details to your api / calendar trigger
         serviceName,
         start: startDateTime,
         end: endDateTime,
@@ -176,9 +179,7 @@ export default function AppointmentModal({ isOpen, onClose, selectedDate, select
   };
 
   return (
-    // 2. WRAP WITH BASEMODAL
     <BaseModal
-      // Dynamically change the title based on what we are doing!
       title={showSuccess ? "Success" : (initialData?.id ? 'Edit Appointment' : 'New Appointment')}
       onClose={onClose}
     >
@@ -191,14 +192,13 @@ export default function AppointmentModal({ isOpen, onClose, selectedDate, select
             <p className="text-gray-500 text-sm">The calendar has been updated.</p>
           </div>
         ) : (
-          // 3. REMOVED ALL THE OLD HEADER HTML, JUST RENDER THE FORM
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Client Search */}
             <div className="relative">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Client</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Client Name</label>
               <input
                 type="text"
-                placeholder="Search client..."
+                placeholder="Search or enter new client name..."
                 className={`w-full px-3 py-2 border rounded-lg outline-none transition-all ${fieldErrors.client
                     ? "border-red-500 focus:ring-red-500 bg-red-50"
                     : "border-gray-300 focus:ring-slate-900 focus:border-slate-900"
@@ -222,6 +222,25 @@ export default function AppointmentModal({ isOpen, onClose, selectedDate, select
                 </div>
               )}
             </div>
+
+            {/* 📞 3. CONDITIONAL NEW CLIENT PHONE INPUT FIELD */}
+            {clientName.length > 0 && clientId === null && (
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg animate-in fade-in slide-in-from-top-2 duration-200">
+                <span className="inline-block text-[11px] font-bold tracking-wider uppercase text-amber-600 bg-amber-50 px-2 py-0.5 rounded mb-2">
+                  New Client Detected
+                </span>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Phone Number <span className="text-gray-400 text-xs">(Optional)</span>
+                </label>
+                <input
+                  type="tel"
+                  placeholder="Enter phone number..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none bg-white focus:ring-2 focus:ring-slate-900 focus:border-slate-900 text-sm"
+                  value={clientPhone}
+                  onChange={(e) => setClientPhone(e.target.value)}
+                />
+              </div>
+            )}
 
             {/* Service Selection */}
             <div>
@@ -316,7 +335,6 @@ export default function AppointmentModal({ isOpen, onClose, selectedDate, select
               <button
                 type="submit"
                 disabled={isSubmitting}
-                // UPDATED THIS BUTTON TO MATCH YOUR DEEP NAVY THEME!
                 className="flex-1 px-4 py-2 bg-[#1E2024] text-white rounded-lg hover:opacity-90 font-medium shadow-sm transition-opacity disabled:opacity-50"
               >
                 {isSubmitting ? 'Saving...' : (initialData?.id ? 'Update' : 'Save Appointment')}

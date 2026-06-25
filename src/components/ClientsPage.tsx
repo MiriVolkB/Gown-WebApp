@@ -4,8 +4,9 @@ import { useState, useTransition } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { ClientListItem } from '../types';
-import { Search, Loader2 } from 'lucide-react';
+import { Search, Loader2, Calendar } from 'lucide-react';
 import { calculateFamilyFinances } from '../lib/calculations';
+import { format } from 'date-fns'; // Used for nice formatting, fallbacks included if strings
 
 interface ClientsPageProps {
   clients: ClientListItem[];
@@ -46,10 +47,8 @@ export function ClientsPage({
   );
 
   const handleClientClick = (clientId: string) => {
-    // 1. Instantly show the loading spinner on the card
     setLoadingClientId(clientId); 
     
-    // 2. Push the heavy routing task to the background so the UI doesn't freeze
     startTransition(() => {
       onClientClick(clientId);
     });
@@ -97,12 +96,16 @@ export function ClientsPage({
             const gownCount = client.projects?.length || 0;
             const isLoading = loadingClientId === String(client.id);
 
+            // 🔍 Extracting Next Appointment Date cleanly
+            const upcomingAppointments = client.appointments?.filter(app => new Date(app.start) >= new Date()) || [];
+            const nextAppointment = upcomingAppointments.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())[0];
+
             return (
               <button
                 key={client.id}
                 onClick={() => handleClientClick(String(client.id))}
                 disabled={isLoading || loadingClientId !== null}
-                className={`bg-white border rounded-xl p-6 shadow-sm transition-all text-center flex flex-col items-center justify-center space-y-2 relative overflow-hidden min-h-[140px] group
+                className={`bg-white border rounded-xl p-6 shadow-sm transition-all text-center flex flex-col items-center justify-between space-y-4 relative overflow-hidden min-h-[200px] group
                   ${isLoading ? 'border-blue-300 ring-2 ring-blue-100' : 'border-gray-100 hover:shadow-md hover:border-gray-200'}
                   ${loadingClientId !== null && !isLoading ? 'opacity-40 grayscale-[50%] cursor-not-allowed' : ''}
                 `}
@@ -111,28 +114,51 @@ export function ClientsPage({
                 {isLoading && (
                   <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white/90 backdrop-blur-[2px] animate-in fade-in">
                     <Loader2 className="w-7 h-7 animate-spin text-blue-600 mb-2" />
-                    <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">
-                      Opening...
-                    </span>
+                    <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">Open...</span>
                   </div>
                 )}
 
-                {/* Card Content */}
+                {/* Gown Badge */}
                 <span className="absolute top-3 right-3 text-[10px] uppercase tracking-wider text-gray-300 font-bold group-hover:text-gray-400 transition-colors">
                   {gownCount} {gownCount === 1 ? 'Gown' : 'Gowns'}
                 </span>
 
-                <div
-                  className="font-bold text-xl leading-tight tracking-tight"
-                  style={{ color: deepNavy }}
-                >
-                  {client.name}
-                </div>
+                {/* Container holding internal stacked elements (Wedding Date down to Next Appointment) */}
+                <div className="flex flex-col items-center space-y-2 w-full pt-2">
+                  
+                  {/* 1️⃣ WEDDING DATE (Top) */}
+                  <div className="text-[11px] uppercase tracking-widest text-amber-600 font-bold bg-amber-50 px-2 py-0.5 rounded">
+                    💍 {client.dueDate ? format(new Date(client.dueDate), 'MMM dd, yyyy') : 'No Wedding Date'}
+                  </div>
 
-                <div className={`text-xs uppercase tracking-widest font-bold px-3 py-1 rounded-full ${
-                  isFullyPaid ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
-                }`}>
-                  {isFullyPaid ? 'Fully Paid' : `Owes ${balance} NIS`}
+                  {/* 2️⃣ NAME */}
+                  <div
+                    className="font-bold text-xl leading-tight tracking-tight mt-1"
+                    style={{ color: deepNavy }}
+                  >
+                    {client.name}
+                  </div>
+
+                  {/* 3️⃣ PAYMENT STATUS */}
+                  <div className={`text-xs uppercase tracking-widest font-bold px-3 py-1 rounded-full ${
+                    isFullyPaid ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
+                  }`}>
+                    {isFullyPaid ? 'Fully Paid' : `Owes ${balance} NIS`}
+                  </div>
+
+                  {/* 4️⃣ NEXT APPOINTMENT (Bottom) */}
+                  <div className="w-full mt-3 pt-3 border-t border-gray-100 flex flex-col items-center text-xs text-gray-500">
+                    <span className="text-[10px] uppercase tracking-wider font-semibold text-gray-400 mb-0.5">Next Appointment</span>
+                    {nextAppointment ? (
+                      <div className="flex items-center gap-1 font-medium text-slate-700">
+                        <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                        <span>{format(new Date(nextAppointment.start), 'Pp')}</span>
+                      </div>
+                    ) : (
+                      <span className="text-gray-400 italic font-light">None Scheduled</span>
+                    )}
+                  </div>
+
                 </div>
 
                 {/* Warning Stripe */}

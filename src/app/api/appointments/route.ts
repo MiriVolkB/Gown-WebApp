@@ -45,7 +45,8 @@ export async function POST(request: Request) {
             const newClient = await prisma.client.create({
                 data: { 
         name: body.clientName,
-        phone: "000-000-0000", // Provide whatever field is required
+        // 📞 If clientPhone exists use it, otherwise fall back to your safe string
+                    phone: body.clientPhone || "000-000-0000",
        
     }
             });
