@@ -40,6 +40,9 @@ export function AddClientModal({ onClose }: { onClose: () => void }) {
       WeddingDate: "",
       dueDate: "",
       projects: [{ memberName: "", orderType: "RENTAL", price: 2000 }],
+      // NEW: Added default downpayment state
+      hasDownpayment: false,
+      downpaymentAmount: 500,
     },
   });
 
@@ -64,6 +67,8 @@ export function AddClientModal({ onClose }: { onClose: () => void }) {
         ...data,
         dueDate: new Date(data.dueDate),
         WeddingDate: data.WeddingDate ? new Date(data.WeddingDate) : null,
+        // NEW: Ensure downpayment is correctly sent to your backend
+        downpaymentAmount: data.hasDownpayment ? data.downpaymentAmount : 0,
       };
 
       const res = await fetch("/api/clients", {
@@ -235,6 +240,41 @@ export function AddClientModal({ onClose }: { onClose: () => void }) {
                   </div>
                 </div>
               ))}
+            </div>
+
+            {/* NEW: Downpayment Section */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
+              <FormField control={form.control} name="hasDownpayment" render={({ field }) => (
+                <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                  <FormControl>
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900 cursor-pointer"
+                      checked={field.value}
+                      onChange={field.onChange}
+                    />
+                  </FormControl>
+                  <FormLabel className="font-medium text-slate-900 cursor-pointer mb-0">
+                    Paid Downpayment?
+                  </FormLabel>
+                </FormItem>
+              )} />
+
+              {form.watch("hasDownpayment") && (
+                <FormField control={form.control} name="downpaymentAmount" render={({ field }) => (
+                  <FormItem className="flex items-center gap-2 space-y-0 ml-auto">
+                    <FormLabel className="whitespace-nowrap mb-0 text-slate-600">Amount (₪)</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="number" 
+                        className="w-28 h-9" 
+                        {...field} 
+                        onChange={(e) => field.onChange(Number(e.target.value))} 
+                      />
+                    </FormControl>
+                  </FormItem>
+                )} />
+              )}
             </div>
 
             <FormField control={form.control} name="notes" render={({ field }) => (

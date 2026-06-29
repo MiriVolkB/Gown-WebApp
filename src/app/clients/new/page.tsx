@@ -27,7 +27,7 @@ type NewClientFormData = z.infer<typeof CreateClientSchema>;
 export default function NewClientPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [showSuccess, setShowSuccess] = useState(false); // Added for success view
+  const [showSuccess, setShowSuccess] = useState(false);
 
   const form = useForm<NewClientFormData>({
     resolver: zodResolver(CreateClientSchema),
@@ -41,6 +41,9 @@ export default function NewClientPage() {
       WeddingDate: "",
       dueDate: "",
       projects: [{ memberName: "Main", orderType: "RENTAL", price: 2000 }],
+      // NEW: Default downpayment state
+      hasDownpayment: false,
+      downpaymentAmount: 500,
     },
   });
 
@@ -64,6 +67,8 @@ export default function NewClientPage() {
         ...data,
         dueDate: data.dueDate ? new Date(data.dueDate).toISOString() : new Date().toISOString(),
         WeddingDate: data.WeddingDate ? new Date(data.WeddingDate).toISOString() : null,
+        // NEW: Send the downpayment amount to the API
+        downpaymentAmount: data.hasDownpayment ? data.downpaymentAmount : 0,
       };
 
       const res = await fetch("/api/clients", {
@@ -74,14 +79,12 @@ export default function NewClientPage() {
 
       if (!res.ok) throw new Error("Failed to create client");
 
-      // --- Success Logic ---
       setShowSuccess(true);
       router.refresh();
 
       setTimeout(() => {
         router.push("/clients");
       }, 2000);
-      // ---------------------
 
     } catch (err) {
       console.error(err);
@@ -99,7 +102,6 @@ export default function NewClientPage() {
       <Card className="overflow-hidden">
         <CardContent className="pt-6">
           {showSuccess ? (
-            /* Success View */
             <div className="py-12 flex flex-col items-center justify-center text-center animate-in fade-in zoom-in duration-500">
               <div className="bg-green-100 p-4 rounded-full mb-4">
                 <CheckCircle2 className="h-12 w-12 text-green-600" />
@@ -108,7 +110,6 @@ export default function NewClientPage() {
               <p className="text-slate-500">Redirecting you to the client list...</p>
             </div>
           ) : (
-            /* Form View */
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                 
@@ -284,7 +285,7 @@ export default function NewClientPage() {
                           name={`projects.${index}.price`}
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Price (NIS)</FormLabel>
+                              <FormLabel>Price (₪)</FormLabel>
                               <FormControl>
                                 <Input
                                   type="number"
@@ -299,6 +300,41 @@ export default function NewClientPage() {
                       </div>
                     </div>
                   ))}
+                </div>
+
+                {/* NEW: Downpayment Section */}
+                <div className="flex flex-col sm:flex-row sm:items-center gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                  <FormField control={form.control} name="hasDownpayment" render={({ field }) => (
+                    <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                      <FormControl>
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900 cursor-pointer"
+                          checked={field.value}
+                          onChange={field.onChange}
+                        />
+                      </FormControl>
+                      <FormLabel className="font-medium text-slate-900 cursor-pointer mb-0">
+                        Paid Downpayment?
+                      </FormLabel>
+                    </FormItem>
+                  )} />
+
+                  {form.watch("hasDownpayment") && (
+                    <FormField control={form.control} name="downpaymentAmount" render={({ field }) => (
+                      <FormItem className="flex items-center gap-2 space-y-0 ml-auto">
+                        <FormLabel className="whitespace-nowrap mb-0 text-slate-600">Amount (₪)</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="number" 
+                            className="w-28 h-9" 
+                            {...field} 
+                            onChange={(e) => field.onChange(Number(e.target.value))} 
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )} />
+                  )}
                 </div>
 
                 <FormField

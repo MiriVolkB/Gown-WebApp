@@ -17,6 +17,9 @@ export const CreateClientSchema = z.object({
   dueDate: z.string().min(1, "Need Gown By date is required"),
   
   Recommended: z.string().optional(),
+  // ---> ADD THESE TWO LINES <---
+  hasDownpayment: z.boolean().default(false).optional(),
+  downpaymentAmount: z.number().default(0).optional(),
   notes: z.string().optional(),
 
   projects: z.array(z.object({

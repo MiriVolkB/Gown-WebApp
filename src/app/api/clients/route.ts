@@ -12,7 +12,9 @@ export async function GET() {
             expenses: true, // Needed for total price breakdown later
           }
         },
-        payments: true
+        payments: true,
+        // 🗓️ YOU NEED TO ADD THIS LINE!
+        appointments: true,
       },
       orderBy: { createdAt: 'desc' }
     });
@@ -59,11 +61,24 @@ export async function POST(req: Request) {
             orderType: p.orderType,
             price: Number(p.price),
           }))
-        }
+        },
+        // 4. NEW: Create the downpayment if the amount is greater than 0
+        payments: val.downpaymentAmount && val.downpaymentAmount > 0 
+          ? {
+              create: {
+                amount: val.downpaymentAmount,
+                note: "Initial Downpayment",
+                method: "cash" // Defaults to cash as per your schema, change if needed
+              }
+            } 
+          : undefined // If undefined, Prisma completely ignores the payment creation
       },
+      
       include: {
-        projects: true // Include them in the response so we can verify
+        projects: true, // Include them in the response so we can verify
+        payments: true,
       }
+
     });
 
     return NextResponse.json(newClient);

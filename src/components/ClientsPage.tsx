@@ -95,6 +95,8 @@ export function ClientsPage({
             const { balance, isFullyPaid } = calculateFamilyFinances(client);
             const gownCount = client.projects?.length || 0;
             const isLoading = loadingClientId === String(client.id);
+            // NEW: If they have 0 gowns, they are just a lead/consultation
+            const isLead = gownCount === 0;
 
             // 🔍 Extracting Next Appointment Date cleanly
             const upcomingAppointments = client.appointments?.filter(app => new Date(app.start) >= new Date()) || [];
@@ -141,9 +143,10 @@ export function ClientsPage({
 
                   {/* 3️⃣ PAYMENT STATUS */}
                   <div className={`text-xs uppercase tracking-widest font-bold px-3 py-1 rounded-full ${
+                    isLead ? 'bg-indigo-50 text-indigo-500' :
                     isFullyPaid ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
                   }`}>
-                    {isFullyPaid ? 'Fully Paid' : `Owes ${balance} NIS`}
+                    {isLead ? 'Consultation' : isFullyPaid ? 'Fully Paid' : `Owes ${balance} NIS`}
                   </div>
 
                   {/* 4️⃣ NEXT APPOINTMENT (Bottom) */}
