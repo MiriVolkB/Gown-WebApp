@@ -6,8 +6,8 @@ interface AppointmentDetailsProps {
   isOpen: boolean;
   onClose: () => void;
   event: any;
-  onDelete: (id: number) => void;
-  onEdit: (event: any) => void;
+  onDelete?: (id: number) => void;
+  onEdit?: (event: any) => void;
 }
 
 export default function AppointmentDetails({ isOpen, onClose, event, onDelete, onEdit }: AppointmentDetailsProps) {
@@ -80,21 +80,27 @@ export default function AppointmentDetails({ isOpen, onClose, event, onDelete, o
       </div>
 
       <div className="p-6 bg-gray-50 border-t border-gray-200 flex justify-between items-center mt-auto">
-        <button 
-          onClick={() => { onDelete(event.id); onClose(); }}
-          className="flex items-center gap-2 px-4 py-2.5 text-red-600 hover:bg-red-50 rounded-lg text-sm font-semibold transition-colors"
-        >
-          <Trash2 className="w-4 h-4" />
-          Delete
-        </button>
+        {/* Only show the Delete button if onDelete exists */}
+{onDelete && (
+  <button 
+    onClick={() => { onDelete(event.id); onClose(); }}
+    className="flex items-center gap-2 px-4 py-2.5 text-red-600 hover:bg-red-50 rounded-lg text-sm font-semibold transition-colors"
+  >
+    <Trash2 className="w-4 h-4" />
+    Delete
+  </button>
+)}
 
-        <button 
-          onClick={() => onEdit(event)}
-          className="flex items-center gap-2 px-6 py-2.5 bg-gray-900 text-white hover:bg-gray-800 rounded-lg text-sm font-semibold shadow-sm transition-colors"
-        >
-          <Edit className="w-4 h-4" />
-          Edit Appointment
-        </button>
+{/* Only show the Edit button if onEdit exists */}
+{onEdit && (
+  <button 
+    onClick={() => onEdit(event)}
+    className="flex items-center gap-2 px-4 py-2.5 text-blue-600 hover:bg-blue-50 rounded-lg text-sm font-semibold transition-colors"
+  >
+    <Edit className="w-4 h-4" />
+    Edit
+  </button>
+)}
       </div>
     </div>
   );

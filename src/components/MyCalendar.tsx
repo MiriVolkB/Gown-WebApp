@@ -85,6 +85,21 @@ export default function MyCalendar({ events, onSlotClick, onEventClick, onEventU
     toolbar: CustomToolbar,
     event: ({ event }: EventProps<any>) => {
       const clientName = event.title || 'Client';
+      const isWedding = event.resource?.type === 'wedding';
+
+      // 2. DRAW OUR OWN GIANT BOX HERE
+      if (isWedding) {
+        return (
+          // Notice we apply the height, color, and rounding directly to this div
+<div className="w-full h-[70px] bg-[#D4AF37] rounded-md shadow-md flex items-center justify-center p-2 z-50 relative top-[-4px]">
+            <span className="font-bold text-[14px] text-[#0F172A] text-center leading-tight whitespace-normal">
+              {clientName}
+            </span>
+          </div>
+        );
+      }
+
+      // Standard layout for normal appointments
       return (
         <div className="h-full w-full flex flex-col justify-center px-1 leading-none select-none overflow-hidden">
           <div className="font-bold truncate text-center">{clientName}</div>
@@ -94,27 +109,44 @@ export default function MyCalendar({ events, onSlotClick, onEventClick, onEventU
   }), [view]);
 
   const eventStyleGetter = useCallback((event: any) => {
+      const isWedding = event.resource?.type === 'wedding';
+
+      // NEW: Force the height inline for weddings so the calendar CANNOT ignore it
+      // 1. MAKE THE CALENDAR'S WRAPPER INVISIBLE
+      if (isWedding) {
+          return {
+              style: {
+                  backgroundColor: 'transparent', // Hide the stubborn default box
+                  border: 'none',
+                  padding: 0,
+                  overflow: 'visible' // Let our new giant box break out!
+              }
+          };
+      }
+
+      // Standard styles for normal appointments
       const serviceName = event.resource?.service?.name;
       const dbColor = event.resource?.service?.color;
       const color = SERVICE_COLORS[serviceName] || dbColor || '#3b82f6';
 
       return {
-        style: {
-          backgroundColor: color,
-          color: 'white', 
-          border: 'none', 
-          borderRadius: '2px', 
-          display: 'block',
-          fontSize: '10px' 
-        }
-      }
+          style: {
+              backgroundColor: color,
+              color: 'white', 
+              border: 'none', 
+              borderRadius: '2px', 
+              display: 'block',
+              fontSize: '10px' 
+          }
+      };
   }, []);
 
   return (
     // 1. REMOVED 'overflow-hidden' from this main wrapper
     <div className="h-full min-h-[500px] bg-white flex flex-col font-sans w-full">
       <style>{`
-        .rbc-month-view .rbc-event {
+        /* UPDATED: Added :not(.wedding-event-large) so it leaves weddings alone! */
+        .rbc-month-view .rbc-event:not(.wedding-event-large) {
             padding: 0px 2px !important;
             min-height: 0 !important;
             height: 18px !important; 

@@ -4,17 +4,33 @@ import React, { useState, useEffect } from 'react';
 import CalendarView from '../../components/MyCalendar';
 import AppointmentModal from '../../components/AppointmentModal';
 import AppointmentDetails from '../../components/AppointmentDetails';
+import '../globals.css'; // Make sure the path is correct based on where your file is!
+
+// NEW: Static list of your service colors for the legend
+const APPOINTMENT_LEGEND = [
+  { label: 'First Appt', color: '#3b82f6' },
+  { label: 'First Fitting', color: '#f59e0b' },
+  { label: 'Second Fitting', color: '#8b5cf6' },
+  { label: 'Pickup', color: '#10b981' },
+  { label: 'Rental', color: '#ec4899' },
+];
 
 export default function CalendarPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
+  
+  // State for our two different types of events
   const [appointments, setAppointments] = useState<any[]>([]);
+  const [weddingEvents, setWeddingEvents] = useState<any[]>([]);
   
   const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
   const [editingData, setEditingData] = useState<any | null>(null);
 
-  // Load Data
+  // Toggle state
+  const [showWeddingsOnly, setShowWeddingsOnly] = useState(false);
+
+  // 1. Load Appointments
   const fetchAppointments = () => {
     fetch('/api/appointments')
       .then(res => res.json())
@@ -25,55 +41,88 @@ export default function CalendarPage() {
             title: appt.client?.name || 'Unknown', 
             start: new Date(appt.start),
             end: new Date(appt.end), 
-            resource: { ...appt } 
+            resource: { ...appt, type: 'appointment' } 
         }));
         setAppointments(formattedEvents);
       })
-      .catch(err => console.error(err));
+      .catch(err => console.error("Error fetching appointments:", err));
+  };
+
+  // 2. Load Clients & extract Wedding Dates
+  const fetchWeddings = () => {
+    fetch('/api/clients') 
+      .then(res => res.json())
+      .then(data => {
+        if (!Array.isArray(data)) return;
+        
+        const formattedWeddings = data
+          .filter((client: any) => client.WeddingDate)
+          .map((client: any) => {
+            const date = new Date(client.WeddingDate);
+            return {
+              id: `wedding-${client.id}`,
+              title: `💍 ${client.name}'s Wedding`,
+              start: date,
+              end: date, 
+              allDay: true, 
+              // NEW: Add a custom class name so we can target it with CSS
+              className: ['wedding-event-large'],
+              resource: { ...client, type: 'wedding' }
+            };
+          });
+        setWeddingEvents(formattedWeddings);
+      })
+      .catch(err => console.error("Error fetching weddings:", err));
   };
 
   useEffect(() => {
     fetchAppointments();
+    fetchWeddings();
   }, []);
 
-  // --- NEW: Handle Drag & Drop API Save ---
+  // --- Handle Drag & Drop API Save ---
   const handleEventUpdate = async ({ event, start, end }: any) => {
-    // 1. Optimistic Update (Update UI immediately)
+    // Prevent dragging wedding dates if they shouldn't be movable from the calendar
+    if (event.resource.type === 'wedding') {
+        alert("Wedding dates must be updated on the Client's profile.");
+        return;
+    }
+
     const updatedEvents = appointments.map((evt) => 
       evt.id === event.id ? { ...evt, start, end } : evt
     );
     setAppointments(updatedEvents);
 
-    // 2. API Call to save to database
     try {
         const res = await fetch('/api/appointments', {
-            method: 'POST', // Using POST as our "Upsert/Update"
+            method: 'POST', 
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 id: event.id,
                 start: start,
                 end: end,
                 clientId: event.resource.clientId,
-                serviceName: event.resource.service.name,
+                serviceId: event.resource.serviceId,
                 notes: event.resource.notes
             }),
         });
 
         if (!res.ok) {
             alert("Failed to move appointment");
-            fetchAppointments(); // Revert if failed
+            fetchAppointments(); 
         }
     } catch (error) {
         console.error("Move failed", error);
-        fetchAppointments(); // Revert
+        fetchAppointments(); 
     }
   };
-  // ----------------------------------------
 
   const handleSlotClick = (slotInfo: { start: Date }) => {
+    // Optional: Prevent creating appointments while in wedding view
+    if (showWeddingsOnly) return;
+
     const date = slotInfo.start;
     setSelectedDate(date);
-    // Format time as HH:mm
     const hours = date.getHours().toString().padStart(2, '0');
     const minutes = date.getMinutes().toString().padStart(2, '0');
     setSelectedTime(`${hours}:${minutes}`);
@@ -109,26 +158,77 @@ export default function CalendarPage() {
 
     if (res.ok) {
         setIsModalOpen(false);
-        fetchAppointments(); // Reload data
+        fetchAppointments(); 
     } else {
         alert("Failed to save.");
     }
   };
 
+  // 3. Determine which list of events to pass to the calendar
+  const displayedEvents = showWeddingsOnly ? weddingEvents : appointments;
+
   return (
     <div className="h-screen flex flex-col bg-slate-50 relative overflow-hidden">
-      <div className="px-8 py-6 bg-white border-b border-slate-200">
-          <h1 className="text-3xl font-bold text-[#0F172A]">Calendar</h1>
+      
+      {/* UPDATED: Header with Title, Legend, and Toggle Switch */}
+      <div className="px-8 py-6 bg-white border-b border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 md:gap-0">
+          
+          <div className="flex items-center gap-8">
+            <h1 className="text-3xl font-bold text-[#0F172A]">Calendar</h1>
+            
+            {/* NEW: Clean, small color index. Hides automatically in Wedding View! */}
+            {!showWeddingsOnly && (
+              <div className="hidden lg:flex items-center gap-4 px-4 py-2 bg-slate-50 border border-slate-200 rounded-full shadow-sm">
+                {APPOINTMENT_LEGEND.map((item) => (
+                  <div key={item.label} className="flex items-center gap-1.5">
+                    <span 
+                      className="w-2.5 h-2.5 rounded-full shadow-sm" 
+                      style={{ backgroundColor: item.color }} 
+                    />
+                    <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
+                      {item.label}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          
+          {/* Toggle Container */}
+          <div className="flex items-center p-1 bg-slate-100 rounded-lg border border-slate-200 shrink-0">
+            <button
+              onClick={() => setShowWeddingsOnly(false)}
+              className={`px-5 py-2 rounded-md font-medium text-sm transition-all duration-200 ${
+                !showWeddingsOnly 
+                  ? 'bg-[#0F172A] text-white shadow-sm hover:bg-slate-800' 
+                  : 'text-slate-500 hover:text-[#0F172A] hover:bg-slate-200/50'
+              }`}
+            >
+              Appointments
+            </button>
+            
+            <button
+              onClick={() => setShowWeddingsOnly(true)}
+              className={`px-5 py-2 rounded-md font-medium text-sm transition-all duration-200 ${
+                showWeddingsOnly 
+                  ? 'bg-[#0F172A] text-white shadow-sm hover:bg-slate-800' 
+                  : 'text-slate-500 hover:text-[#0F172A] hover:bg-slate-200/50'
+              }`}
+            >
+              Wedding Dates
+            </button>
+          </div>
       </div>
+      
 
       <div className="flex-1 overflow-hidden p-4">
         <div className="h-full bg-white rounded-xl shadow-sm border border-slate-200">
           <CalendarView 
-            events={appointments} 
+            events={displayedEvents} 
             onSlotClick={handleSlotClick} 
             onEventClick={handleEventClick}
-            setEvents={setAppointments} // Local update
-            onEventUpdate={handleEventUpdate} // <--- Pass the API saver
+            setEvents={showWeddingsOnly ? setWeddingEvents : setAppointments} 
+            onEventUpdate={handleEventUpdate} 
           />
         </div>
       </div>
@@ -137,8 +237,8 @@ export default function CalendarPage() {
         isOpen={!!selectedEvent}
         event={selectedEvent}
         onClose={() => setSelectedEvent(null)}
-        onDelete={handleDeleteAppointment}
-        onEdit={handleEditAppointment}
+        onDelete={selectedEvent?.resource?.type === 'appointment' ? handleDeleteAppointment : undefined}
+        onEdit={selectedEvent?.resource?.type === 'appointment' ? handleEditAppointment : undefined}
       />
 
       {isModalOpen && (

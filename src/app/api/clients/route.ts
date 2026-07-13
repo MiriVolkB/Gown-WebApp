@@ -1,10 +1,29 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { CreateClientSchema } from "@/lib/validation/client.schema";
+import { getUserRole } from "@/lib/auth";
 
 // --- GET all families ---
 export async function GET() {
   try {
+    // 2. Grab the role in ONE line!
+    const role = await getUserRole();
+
+    // 3. If it's a guest, send the fake demo data
+    if (role === "GUEST") {
+      return NextResponse.json([
+        {
+          id: "demo-1",
+          name: "The Smith Family (DEMO)",
+          phone: "555-0192",
+          projects: [],
+          payments: [],
+          appointments: []
+        }
+        // ... add a couple more fake objects here
+      ]);
+    }
+  
     const clients = await prisma.client.findMany({
       include: {
         projects: {
@@ -27,6 +46,13 @@ export async function GET() {
 
 // --- CREATE new family folder and initial gown ---
 export async function POST(req: Request) {
+  // 🛡️ PHASE 3 IMPLEMENTED HERE: Block the guest from creating real data
+    const role = await getUserRole();
+    if (role === "GUEST") {
+      // Return a 200 OK so the frontend thinks it worked and doesn't crash, 
+      // but don't actually save anything to Prisma!
+      return NextResponse.json({ message: "Simulated success for demo mode" });
+    }
   try {
     const data = await req.json();
 

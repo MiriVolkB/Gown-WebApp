@@ -5,7 +5,8 @@ const SECRET = "supersecret"
 
 const users = [
   { id: 1, username: "Rz", password: "123456", role: "OWNER" },
-  { id: 2, username: "secretary", password: "123456", role: "SECRETARY" }
+  { id: 2, username: "secretary", password: "123456", role: "SECRETARY" },
+  { id: 3, username: "demo_recruiter", password: "demo_password", role: "GUEST" }
 ]
 
 export async function POST(req: Request) {
