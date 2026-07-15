@@ -1,30 +1,65 @@
 import { NextResponse } from "next/server"
 import jwt from "jsonwebtoken"
+import bcrypt from "bcrypt"
+import { prisma } from "@/lib/prisma"
 
-const SECRET = "supersecret"
-
-const users = [
-  { id: 1, username: "Rz", password: "123456", role: "OWNER" },
-  { id: 2, username: "secretary", password: "123456", role: "SECRETARY" },
-  { id: 3, username: "demo_recruiter", password: "demo_password", role: "GUEST" }
-]
 
 export async function POST(req: Request) {
-  const { username, password } = await req.json()
-  const user = users.find(u => u.username === username && u.password === password)
+  try {
+    const { username, password } = await req.json()
+    
+    // 1. Find the user in PostgreSQL
+    const user = await prisma.user.findUnique({
+      where: { username: username }
+    })
 
-  if (!user) return NextResponse.json({ error: "Invalid login" }, { status: 401 })
+    // 🕵️ ADD THIS:
+    console.log("Did we find the user in DB?:", user ? "Yes" : "No, user is null")
 
-  const token = jwt.sign({ id: user.id, role: user.role }, SECRET, { expiresIn: "1h" })
+    if (!user) {
+      return NextResponse.json({ error: "Invalid login credentials" }, { status: 401 })
+    }
 
-  const response = NextResponse.json({ success: true })
+    // 2. Compare the typed password with the securely hashed password in the DB
+    const isPasswordValid = await bcrypt.compare(password, user.passwordHash)
 
-  response.cookies.set("token", token, {
-    httpOnly: true,
-    secure: false, // ✅ must be false for localhost
-    path: "/",    // ✅ ensure cookie is available everywhere
-    maxAge: 60 * 60 // 1 hour in seconds (3600 seconds)
-  })
+    // 🕵️ ADD THIS:
+    console.log("Did the bcrypt password match?:", isPasswordValid)
+    
+    if (!isPasswordValid) {
+      return NextResponse.json({ error: "Invalid login credentials" }, { status: 401 })
+    }
 
-  return response
+    // 3. Get the secret from .env (Never hardcode it!)
+    const secret = process.env.JWT_SECRET
+    if (!secret) throw new Error("JWT_SECRET is missing from .env")
+
+    // 4. Sign the token using the Database User ID
+    const token = jwt.sign({ 
+      id: user.id, 
+      role: user.role,
+      username: user.username
+    }, 
+      secret, 
+      { expiresIn: "1h" }
+    )
+
+
+    // 5. Create the response
+    const response = NextResponse.json({ success: true, role: user.role })
+
+    // 6. Set the secure HttpOnly cookie (Your excellent logic here!)
+    response.cookies.set("token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production", // ✅ Automatically false on localhost, true in production
+      path: "/",      // ✅ Ensure cookie is available everywhere
+      maxAge: 60 * 60 // 1 hour in seconds
+    })
+
+    return response
+
+  } catch (error) {
+    console.error("Login Error:", error)
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
+  }
 }

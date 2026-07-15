@@ -1,17 +1,15 @@
-// middleware.ts
+// src/proxy.ts
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import * as jose from "jose"
 
-const SECRET = new TextEncoder().encode("supersecret")
-
 export async function proxy(req: NextRequest) {
-  const token = req.cookies.get("token")?.value
+  const token = await req.cookies.get("token")?.value
   const { pathname } = req.nextUrl
 
-  console.log("Middleware checking path:", pathname)
+  console.log("Proxy checking path:", pathname)
 
-  // 1️⃣ Skip middleware for static files, login page, and API routes
+  // 1️⃣ Skip proxy for static files, login page, and API routes
   if (
     pathname.startsWith('/_next') ||
     pathname.startsWith('/api') ||
@@ -28,11 +26,17 @@ export async function proxy(req: NextRequest) {
   }
 
   try {
-    // 3️⃣ Verify JWT token
+    // 3️⃣ Get the secret securely from .env
+    const secretString = process.env.JWT_SECRET
+    if (!secretString) throw new Error("JWT_SECRET missing in proxy")
+    
+    const SECRET = new TextEncoder().encode(secretString)
+
+    // 4️⃣ Verify JWT token
     const { payload } = await jose.jwtVerify(token, SECRET)
     const role = payload.role as string
 
-    // 4️⃣ Role-based blocking: SECRETARY cannot access /finances
+    // 5️⃣ Role-based blocking: SECRETARY cannot access /finances
     if (pathname.startsWith("/finances") && role === "SECRETARY") {
       console.log("Secretary tried to access /finances! Redirecting...")
       return NextResponse.redirect(new URL("/unauthorized", req.url))
@@ -42,11 +46,15 @@ export async function proxy(req: NextRequest) {
     return NextResponse.next()
   } catch (err) {
     console.log("Invalid token, redirecting to login...")
-    return NextResponse.redirect(new URL("/login", req.url))
+    
+    // Clear the bad token before redirecting
+    const response = NextResponse.redirect(new URL("/login", req.url))
+    response.cookies.delete('token')
+    return response
   }
 }
 
-// 5️⃣ Middleware matcher — protect everything except login/static/api
+// 6️⃣ Proxy matcher — protect everything except login/static/api
 export const config = {
   matcher: [
     '/((?!api|_next/static|_next/image|favicon.ico).*)'

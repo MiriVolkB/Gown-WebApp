@@ -43,7 +43,7 @@ export default function LoginPage() {
         "Content-Type": "application/json"
       },
       // Hardcode the guest credentials we added to the backend
-      body: JSON.stringify({ username: "demo_recruiter", password: "demo_password" })
+      body: JSON.stringify({ username: "Guest", password: "123456" })
     })
 
     setLoading(false)

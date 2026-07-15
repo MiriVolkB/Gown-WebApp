@@ -1,50 +1,58 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getUser } from "@/lib/getUser";
 
 export async function GET(req: Request) {
+    const user = await getUser();
+    if (!user) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { searchParams } = new URL(req.url);
     const month = searchParams.get("month");
     const year = searchParams.get("year") || new Date().getFullYear().toString();
 
-
     let dateFilter: any = {};
 
     if (year === "all") {
-        // Option: All Time (No filter)
         dateFilter = undefined;
     } else if (month === "all") {
-        // Option: Yearly View
         const startDate = new Date(parseInt(year), 0, 1);
         const endDate = new Date(parseInt(year), 11, 31, 23, 59, 59);
         dateFilter = { gte: startDate, lte: endDate };
     } else {
-        // Option: Monthly View
-        // Add || "1" so it defaults to January if something goes wrong
         const m = month || "1";
         const startDate = new Date(parseInt(year), parseInt(m) - 1, 1);
         const endDate = new Date(parseInt(year), parseInt(m), 0, 23, 59, 59);
         dateFilter = { gte: startDate, lte: endDate };
     }
 
-
+    const ownerFilter = { ownerId: user.id };
 
     try {
-        // 2. Fetch everything in parallel for speed
         const [payments, expenses, projects, allClientsForFlags] = await Promise.all([
-            prisma.payment.findMany({ where: { date: dateFilter }, orderBy: { date: 'desc' }, include: { client: true } }),
-            prisma.expense.findMany({ where: { date: dateFilter }, orderBy: { date: 'desc' } }),
+            prisma.payment.findMany({
+                where: { date: dateFilter, client: ownerFilter },
+                orderBy: { date: 'desc' },
+                include: { client: true },
+            }),
+            prisma.expense.findMany({
+                where: { date: dateFilter, project: { client: ownerFilter } },
+                orderBy: { date: 'desc' },
+            }),
             prisma.project.findMany({
+                where: { client: ownerFilter },
                 include: {
                     expenses: true,
                     client: {
                         include: {
-                            payments: true // This is the missing piece!
+                            payments: true
                         }
                     }
                 }
             }),
-            // Specifically for Red Flags:
             prisma.client.findMany({
+                where: ownerFilter,
                 include: {
                     projects: { include: { expenses: true } },
                     payments: true
@@ -52,7 +60,6 @@ export async function GET(req: Request) {
             })
         ]);
 
-        // 3. Logic to find "Red Flag" clients (Owe money + Due Date passed)
         const redFlags: any[] = [];
         const generalOwed: any[] = [];
         allClientsForFlags.forEach(client => {
@@ -71,7 +78,7 @@ export async function GET(req: Request) {
                 }
             }
         });
-        // 4. Return EVERYTHING to the frontend
+
         return NextResponse.json({
             payments,
             expenses,

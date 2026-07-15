@@ -18,6 +18,10 @@ model Client {
   notes        String?
   createdAt    DateTime      @default(now())
   dueDate      DateTime?     @map("needGownBy")
+
+  // ✅ ADD THESE TWO LINES:
+  ownerId         String?   // Notice the '?' makes it optional for now
+  owner           User?     @relation(fields: [ownerId], references: [id])
   appointments Appointment[]
   payments     Payment[]
   projects     Project[]
@@ -99,4 +103,16 @@ enum OrderType {
   CUSTOM_MAKE
   RENTAL
   CUSTOM_MAKE_RENTAL
+}
+
+// Add this to the bottom:
+model User {
+  id           String   @id @default(uuid())
+  username     String   @unique
+  passwordHash String
+  role         String   @default("GUEST") // e.g., OWNER, SECRETARY, GUEST
+  createdAt    DateTime @default(now())
+
+  // ✅ ADD THIS: A user can own many clients
+  clients      Client[]
 }

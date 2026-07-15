@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { CreateClientSchema } from "@/lib/validation/client.schema";
+import { getUser } from "@/lib/getUser";
 
 export const UpdateClientSchema = CreateClientSchema.partial();
 
@@ -9,6 +10,11 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ clientId: string }> }
 ) {
+  const user = await getUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const { clientId } = await params;
   const clientIdInt = Number(clientId);
 
@@ -16,28 +22,27 @@ export async function GET(
     return NextResponse.json({ error: "Invalid client ID" }, { status: 400 });
   }
 
-  const client = await prisma.client.findUnique({
-    where: { id: clientIdInt },
+  const client = await prisma.client.findFirst({
+    where: { id: clientIdInt, ownerId: user.id },
     include: {
-      // Fetch all gowns/people in this family
       projects: {
         include: {
           measurements: { orderBy: { date: "desc" } },
           expenses: true,
         },
       },
-      payments: true, // Fetch family payment history
+      payments: true,
       appointments: {
-      include: {
-        service: true // <--- THIS IS THE MISSING KEY!
+        include: {
+          service: true
+        }
       }
-    }
     },
   });
 
   if (!client) {
     return NextResponse.json(
-      { error: "Client not found" }, 
+      { error: "Client not found" },
       { status: 404 });
   }
 
@@ -51,6 +56,14 @@ export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ clientId: string }> }
 ) {
+  const user = await getUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (user.role === "GUEST") {
+    return NextResponse.json({ message: "Simulated success for demo mode" });
+  }
+
   const { clientId } = await params;
   const clientIdInt = Number(clientId);
 
@@ -59,9 +72,16 @@ export async function PATCH(
   }
 
   try {
+    const owned = await prisma.client.findFirst({
+      where: { id: clientIdInt, ownerId: user.id },
+      select: { id: true },
+    });
+    if (!owned) {
+      return NextResponse.json({ error: "Client not found" }, { status: 404 });
+    }
+
     const data = await req.json();
 
-    // Note: Ensure UpdateClientSchema is updated to reflect new schema names
     const parsed = UpdateClientSchema.safeParse(data);
     if (!parsed.success) {
       return NextResponse.json(
@@ -72,21 +92,17 @@ export async function PATCH(
 
     const dataToUpdate: any = {};
 
-    // --- Using the 'if' style for explicit mapping ---
     if (parsed.data.name !== undefined) dataToUpdate.name = parsed.data.name;
     if (parsed.data.email !== undefined) dataToUpdate.email = parsed.data.email;
     if (parsed.data.phone !== undefined) dataToUpdate.phone = parsed.data.phone;
-    
-    // Updated to match the new schema names
+
     if (parsed.data.WeddingDate !== undefined)
-      dataToUpdate.weddingDate = parsed.data.WeddingDate ? new Date(parsed.data.WeddingDate) : null;
-    
+      dataToUpdate.WeddingDate = parsed.data.WeddingDate ? new Date(parsed.data.WeddingDate) : null;
+
     if (parsed.data.dueDate !== undefined)
       dataToUpdate.dueDate = parsed.data.dueDate ? new Date(parsed.data.dueDate) : null;
 
-    ;
-    
-    if (parsed.data.notes !== undefined) 
+    if (parsed.data.notes !== undefined)
       dataToUpdate.notes = parsed.data.notes;
 
     const updatedClient = await prisma.client.update({

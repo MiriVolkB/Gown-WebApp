@@ -1,12 +1,19 @@
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
+import { getUser } from '@/lib/getUser';
 
 const prisma = new PrismaClient();
 
 // GET: Fetch all appointments
 export async function GET() {
   try {
+    const user = await getUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const appointments = await prisma.appointment.findMany({
+      where: { client: { ownerId: user.id } },
       include: {
         client: true,
         service: true,
@@ -21,6 +28,14 @@ export async function GET() {
 // POST: Create OR Update Appointment
 export async function POST(request: Request) {
   try {
+    const user = await getUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    if (user.role === 'GUEST') {
+      return NextResponse.json({ message: 'Simulated success for demo mode' });
+    }
+
     const body = await request.json();
 
     // --- 1. HANDLE CLIENT ---
@@ -29,10 +44,11 @@ export async function POST(request: Request) {
     // If we have no ID but we have a Name, try to find the existing client
     if (!finalClientId && body.clientName) {
         const existingClient = await prisma.client.findFirst({
-            where: { 
+            where: {
+                ownerId: user.id,
                 name: {
                     equals: body.clientName,
-                    mode: 'insensitive' // Ignores case (finds "miri" even if "Miri")
+                    mode: 'insensitive'
                 }
             }
         });
@@ -40,15 +56,12 @@ export async function POST(request: Request) {
         if (existingClient) {
             finalClientId = existingClient.id;
         } else {
-            // SAFE CREATE: Only save the name, let the defaults handle the rest
-            // This prevents crashes from missing fields like 'NeedGownBy'
             const newClient = await prisma.client.create({
-                data: { 
-        name: body.clientName,
-        // 📞 If clientPhone exists use it, otherwise fall back to your safe string
+                data: {
+                    name: body.clientName,
                     phone: body.clientPhone || "000-000-0000",
-       
-    }
+                    ownerId: user.id,
+                }
             });
             finalClientId = newClient.id;
         }
@@ -58,9 +71,17 @@ export async function POST(request: Request) {
          return NextResponse.json({ error: 'Client is required' }, { status: 400 });
     }
 
+    const ownedClient = await prisma.client.findFirst({
+      where: { id: finalClientId, ownerId: user.id },
+      select: { id: true },
+    });
+    if (!ownedClient) {
+      return NextResponse.json({ error: 'Client not found' }, { status: 404 });
+    }
+
     // --- 2. HANDLE SERVICE ---
     let service = await prisma.service.findFirst({
-        where: { name: body.serviceName } 
+        where: { name: body.serviceName }
     });
 
     if (!service) {
@@ -87,6 +108,12 @@ export async function POST(request: Request) {
 
     // --- 4. SAVE ---
     if (body.id) {
+        const existing = await prisma.appointment.findFirst({
+          where: { id: Number(body.id), client: { ownerId: user.id } },
+        });
+        if (!existing) {
+          return NextResponse.json({ error: 'Appointment not found' }, { status: 404 });
+        }
         const updated = await prisma.appointment.update({
             where: { id: Number(body.id) },
             data: appointmentData
@@ -100,7 +127,7 @@ export async function POST(request: Request) {
     }
 
   } catch (error) {
-    console.error("API Error:", error); // Check terminal for this if it fails again
+    console.error("API Error:", error);
     return NextResponse.json({ error: 'Server Error' }, { status: 500 });
   }
 }
@@ -108,9 +135,24 @@ export async function POST(request: Request) {
 // DELETE: Remove Appointment
 export async function DELETE(request: Request) {
     try {
+        const user = await getUser();
+        if (!user) {
+          return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+        if (user.role === 'GUEST') {
+          return NextResponse.json({ success: true });
+        }
+
         const { searchParams } = new URL(request.url);
         const id = searchParams.get('id');
         if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
+
+        const existing = await prisma.appointment.findFirst({
+          where: { id: Number(id), client: { ownerId: user.id } },
+        });
+        if (!existing) {
+          return NextResponse.json({ error: 'Appointment not found' }, { status: 404 });
+        }
 
         await prisma.appointment.delete({ where: { id: Number(id) } });
         return NextResponse.json({ success: true });

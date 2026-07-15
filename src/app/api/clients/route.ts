@@ -1,41 +1,28 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { CreateClientSchema } from "@/lib/validation/client.schema";
-import { getUserRole } from "@/lib/auth";
+import { getUser } from "@/lib/getUser";
 
 // --- GET all families ---
 export async function GET() {
   try {
-    // 2. Grab the role in ONE line!
-    const role = await getUserRole();
-
-    // 3. If it's a guest, send the fake demo data
-    if (role === "GUEST") {
-      return NextResponse.json([
-        {
-          id: "demo-1",
-          name: "The Smith Family (DEMO)",
-          phone: "555-0192",
-          projects: [],
-          payments: [],
-          appointments: []
-        }
-        // ... add a couple more fake objects here
-      ]);
+    const user = await getUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-  
+
     const clients = await prisma.client.findMany({
+      where: { ownerId: user.id },
       include: {
         projects: {
           include: {
-            expenses: true, // Needed for total price breakdown later
-          }
+            expenses: true,
+          },
         },
         payments: true,
-        // 🗓️ YOU NEED TO ADD THIS LINE!
         appointments: true,
       },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: "desc" },
     });
     return NextResponse.json(clients);
   } catch (error) {
@@ -46,17 +33,18 @@ export async function GET() {
 
 // --- CREATE new family folder and initial gown ---
 export async function POST(req: Request) {
-  // 🛡️ PHASE 3 IMPLEMENTED HERE: Block the guest from creating real data
-    const role = await getUserRole();
-    if (role === "GUEST") {
-      // Return a 200 OK so the frontend thinks it worked and doesn't crash, 
-      // but don't actually save anything to Prisma!
-      return NextResponse.json({ message: "Simulated success for demo mode" });
-    }
+  const user = await getUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (user.role === "GUEST") {
+    // Simulated success for demo mode — don't write to Prisma
+    return NextResponse.json({ message: "Simulated success for demo mode" });
+  }
+
   try {
     const data = await req.json();
 
-    // 1. Use the specific schema we updated
     const parsed = CreateClientSchema.safeParse(data);
 
     if (!parsed.success) {
@@ -68,7 +56,6 @@ export async function POST(req: Request) {
 
     const val = parsed.data;
 
-    // 2. Create the data structure
     const newClient = await prisma.client.create({
       data: {
         name: val.name,
@@ -78,9 +65,8 @@ export async function POST(req: Request) {
         notes: val.notes || null,
         WeddingDate: val.WeddingDate ? new Date(val.WeddingDate) : null,
         dueDate: val.dueDate ? new Date(val.dueDate) : null,
+        ownerId: user.id,
 
-        // 3. The Nested Create for the first project
-        // This 'create' nested here handles the whole array of family members
         projects: {
           create: val.projects.map((p: any) => ({
             memberName: p.memberName,
@@ -88,20 +74,19 @@ export async function POST(req: Request) {
             price: Number(p.price),
           }))
         },
-        // 4. NEW: Create the downpayment if the amount is greater than 0
-        payments: val.downpaymentAmount && val.downpaymentAmount > 0 
+        payments: val.downpaymentAmount && val.downpaymentAmount > 0
           ? {
               create: {
                 amount: val.downpaymentAmount,
                 note: "Initial Downpayment",
-                method: "cash" // Defaults to cash as per your schema, change if needed
+                method: "cash"
               }
-            } 
-          : undefined // If undefined, Prisma completely ignores the payment creation
+            }
+          : undefined
       },
-      
+
       include: {
-        projects: true, // Include them in the response so we can verify
+        projects: true,
         payments: true,
       }
 
