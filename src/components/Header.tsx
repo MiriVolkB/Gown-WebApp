@@ -1,6 +1,8 @@
 "use client";
 
-import { Search, Plus, UserPlus, Calendar, CreditCard, Receipt, Menu } from 'lucide-react';
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Search, Plus, UserPlus, Calendar, CreditCard, Receipt, Menu, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useModal } from "@/hooks/use-modal-store";
 import {
@@ -12,16 +14,32 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import Sidebar from "@/components/Sidebar"; 
 
 export default function Header() {
     const { onOpen } = useModal();
+    const router = useRouter();
+    const [isLoggingOut, setIsLoggingOut] = useState(false);
+    const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+
+    const handleLogout = async () => {
+      setIsLoggingOut(true);
+      try {
+        await fetch("/api/logout", { method: "POST" });
+        router.push("/login");
+        router.refresh();
+      } catch (error) {
+        console.error("Logout failed:", error);
+        setIsLoggingOut(false);
+      }
+    };
     
   return (
     <header className="h-16 border-b border-slate-200 bg-white sticky top-0 z-50 px-4 md:px-8 flex items-center justify-between gap-2">
       
       {/* MOBILE HAMBURGER MENU */}
-      <Sheet>
+      <Sheet open={isMobileNavOpen} onOpenChange={setIsMobileNavOpen}>
         <SheetTrigger asChild>
           <Button variant="ghost" size="icon" className="md:hidden mr-1">
             <Menu className="h-6 w-6 text-slate-700" />
@@ -29,7 +47,7 @@ export default function Header() {
           </Button>
         </SheetTrigger>
         <SheetContent side="left" className="p-0 w-72 bg-slate-900">
-          <Sidebar />
+          <Sidebar onClose={() => setIsMobileNavOpen(false)} />
         </SheetContent>
       </Sheet>
 
@@ -45,8 +63,8 @@ export default function Header() {
         </div>
       </div>
 
-      {/* QUICK ACTIONS */}
-      <div className="flex items-center ml-2 md:ml-8">
+      {/* QUICK ACTIONS + LOGOUT */}
+      <div className="flex items-center gap-2 ml-2 md:ml-8">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button className="bg-slate-900 text-white hover:bg-slate-800 gap-2 px-3 md:px-4 shadow-sm">
@@ -81,6 +99,35 @@ export default function Header() {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+
+        {/* Mobile: icon with hover/tap label underneath */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="outline"
+              onClick={handleLogout}
+              disabled={isLoggingOut}
+              className="sm:hidden px-3 border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-slate-900"
+            >
+              <LogOut className="h-4 w-4" />
+              <span className="sr-only">{isLoggingOut ? "Logging out..." : "Logout"}</span>
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" sideOffset={6}>
+            {isLoggingOut ? "Logging out..." : "Logout"}
+          </TooltipContent>
+        </Tooltip>
+
+        {/* Desktop: icon + text */}
+        <Button
+          variant="outline"
+          onClick={handleLogout}
+          disabled={isLoggingOut}
+          className="hidden sm:inline-flex gap-2 px-4 border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-slate-900"
+        >
+          <LogOut className="h-4 w-4" />
+          <span>{isLoggingOut ? "Logging out..." : "Log out"}</span>
+        </Button>
       </div>
     </header>
   );

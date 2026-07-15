@@ -42,6 +42,21 @@ export type AppointmentWithService = Prisma.AppointmentGetPayload<{
   include: { service: true }
 }>;
 
+export type BookingType = "client" | "custom";
+
+export interface AppointmentSavePayload {
+  id?: number;
+  bookingType: BookingType;
+  clientName?: string;
+  clientId?: number | null;
+  clientPhone?: string;
+  eventTitle?: string;
+  serviceName: string;
+  start: Date | string;
+  end: Date | string;
+  notes?: string;
+}
+
 // 3. Keep the Page Props here so it's easy to import into ClientProfilePage.tsx
 export interface ClientProfilePageProps {
   client: ClientProfileData;

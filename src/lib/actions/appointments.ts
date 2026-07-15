@@ -5,22 +5,30 @@ export const serviceIdMap: Record<string, number> = {
   'First Fitting': 2,
   'Second Fitting': 3,
   'Pickup': 4,
-  'Rental': 5
+  'Rental': 5,
+  'Other': 6,
 };
 
 // 1. Unified Save (Handles Create and Update)
-export async function saveAppointmentAction(appointmentData: any, clientId: number, clientName: string) {
+export async function saveAppointmentAction(
+  appointmentData: any,
+  clientId?: number | null,
+  clientName?: string
+) {
+  const isCustom = appointmentData.bookingType === 'custom' || (!clientId && !clientName);
+
   const response = await fetch('/api/appointments', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       ...appointmentData,
-      clientId: clientId,
-      clientName: clientName,
-      serviceId: serviceIdMap[appointmentData.serviceName] || 1
+      bookingType: isCustom ? 'custom' : 'client',
+      clientId: isCustom ? null : clientId,
+      clientName: isCustom ? undefined : clientName,
+      serviceId: serviceIdMap[appointmentData.serviceName] || (isCustom ? 6 : 1),
     }),
   });
-  
+
   return response;
 }
 

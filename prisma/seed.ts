@@ -9,6 +9,7 @@ const SERVICES = [
   { name: "Second Fitting", defaultDurationMin: 45, color: "#8b5cf6" },
   { name: "Pickup", defaultDurationMin: 20, color: "#10b981" },
   { name: "Rental", defaultDurationMin: 30, color: "#ec4899" },
+  { name: "Other", defaultDurationMin: 30, color: "#64748b" },
 ] as const
 
 type PaymentPlan = "fully_paid" | "owes" | "partial" | "none"

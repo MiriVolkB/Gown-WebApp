@@ -13,6 +13,7 @@ const APPOINTMENT_LEGEND = [
   { label: 'Second Fitting', color: '#8b5cf6' },
   { label: 'Pickup', color: '#10b981' },
   { label: 'Rental', color: '#ec4899' },
+  { label: 'Other', color: '#64748b' },
 ];
 
 export default function CalendarPage() {
@@ -38,10 +39,10 @@ export default function CalendarPage() {
         if (!Array.isArray(data)) return;
         const formattedEvents = data.map((appt: any) => ({
             id: appt.id,
-            title: appt.client?.name || 'Unknown', 
+            title: appt.title || appt.client?.name || 'Untitled',
             start: new Date(appt.start),
-            end: new Date(appt.end), 
-            resource: { ...appt, type: 'appointment' } 
+            end: new Date(appt.end),
+            resource: { ...appt, type: 'appointment' }
         }));
         setAppointments(formattedEvents);
       })
@@ -101,8 +102,11 @@ export default function CalendarPage() {
                 id: event.id,
                 start: start,
                 end: end,
+                bookingType: event.resource.clientId == null ? 'custom' : 'client',
                 clientId: event.resource.clientId,
+                eventTitle: event.resource.title,
                 serviceId: event.resource.serviceId,
+                serviceName: event.resource.service?.name,
                 notes: event.resource.notes
             }),
         });
@@ -168,61 +172,77 @@ export default function CalendarPage() {
   const displayedEvents = showWeddingsOnly ? weddingEvents : appointments;
 
   return (
-    <div className="h-screen flex flex-col bg-slate-50 relative overflow-hidden">
+    <div className="flex flex-col h-[calc(100dvh-4rem)] -mx-4 -mt-4 -mb-4 md:mx-0 md:mt-0 md:mb-0 md:h-[calc(100dvh-4rem-4rem)] bg-slate-50 relative overflow-hidden">
       
-      {/* UPDATED: Header with Title, Legend, and Toggle Switch */}
-      <div className="px-8 py-6 bg-white border-b border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 md:gap-0">
+      {/* Header with title, legend, and toggle */}
+      <div className="px-4 py-3 md:px-8 md:py-6 bg-white border-b border-slate-200 flex flex-col gap-3 md:gap-4 shrink-0">
           
-          <div className="flex items-center gap-8">
-            <h1 className="text-3xl font-bold text-[#0F172A]">Calendar</h1>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <h1 className="text-xl md:text-3xl font-bold text-[#0F172A]">Calendar</h1>
             
-            {/* NEW: Clean, small color index. Hides automatically in Wedding View! */}
-            {!showWeddingsOnly && (
-              <div className="hidden lg:flex items-center gap-4 px-4 py-2 bg-slate-50 border border-slate-200 rounded-full shadow-sm">
-                {APPOINTMENT_LEGEND.map((item) => (
-                  <div key={item.label} className="flex items-center gap-1.5">
-                    <span 
-                      className="w-2.5 h-2.5 rounded-full shadow-sm" 
-                      style={{ backgroundColor: item.color }} 
-                    />
-                    <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
-                      {item.label}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
+            {/* Toggle */}
+            <div className="flex items-center p-1 bg-slate-100 rounded-lg border border-slate-200 w-full sm:w-auto">
+              <button
+                onClick={() => setShowWeddingsOnly(false)}
+                className={`flex-1 sm:flex-none px-3 md:px-5 py-2 rounded-md font-medium text-xs md:text-sm transition-all duration-200 ${
+                  !showWeddingsOnly 
+                    ? 'bg-[#0F172A] text-white shadow-sm hover:bg-slate-800' 
+                    : 'text-slate-500 hover:text-[#0F172A] hover:bg-slate-200/50'
+                }`}
+              >
+                Appointments
+              </button>
+              
+              <button
+                onClick={() => setShowWeddingsOnly(true)}
+                className={`flex-1 sm:flex-none px-3 md:px-5 py-2 rounded-md font-medium text-xs md:text-sm transition-all duration-200 ${
+                  showWeddingsOnly 
+                    ? 'bg-[#0F172A] text-white shadow-sm hover:bg-slate-800' 
+                    : 'text-slate-500 hover:text-[#0F172A] hover:bg-slate-200/50'
+                }`}
+              >
+                Weddings
+              </button>
+            </div>
           </div>
-          
-          {/* Toggle Container */}
-          <div className="flex items-center p-1 bg-slate-100 rounded-lg border border-slate-200 shrink-0">
-            <button
-              onClick={() => setShowWeddingsOnly(false)}
-              className={`px-5 py-2 rounded-md font-medium text-sm transition-all duration-200 ${
-                !showWeddingsOnly 
-                  ? 'bg-[#0F172A] text-white shadow-sm hover:bg-slate-800' 
-                  : 'text-slate-500 hover:text-[#0F172A] hover:bg-slate-200/50'
-              }`}
-            >
-              Appointments
-            </button>
-            
-            <button
-              onClick={() => setShowWeddingsOnly(true)}
-              className={`px-5 py-2 rounded-md font-medium text-sm transition-all duration-200 ${
-                showWeddingsOnly 
-                  ? 'bg-[#0F172A] text-white shadow-sm hover:bg-slate-800' 
-                  : 'text-slate-500 hover:text-[#0F172A] hover:bg-slate-200/50'
-              }`}
-            >
-              Wedding Dates
-            </button>
-          </div>
-      </div>
-      
 
-      <div className="flex-1 overflow-hidden p-4">
-        <div className="h-full bg-white rounded-xl shadow-sm border border-slate-200">
+          {/* Mobile legend - horizontal scroll */}
+          {!showWeddingsOnly && (
+            <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1 lg:hidden calendar-scroll">
+              {APPOINTMENT_LEGEND.map((item) => (
+                <div key={item.label} className="flex items-center gap-1.5 shrink-0 px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-full">
+                  <span
+                    className="w-2 h-2 rounded-full"
+                    style={{ backgroundColor: item.color }}
+                  />
+                  <span className="text-[10px] font-semibold text-slate-600 uppercase tracking-wide whitespace-nowrap">
+                    {item.label}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Desktop legend */}
+          {!showWeddingsOnly && (
+            <div className="hidden lg:flex items-center gap-4 px-4 py-2 bg-slate-50 border border-slate-200 rounded-full shadow-sm w-fit">
+              {APPOINTMENT_LEGEND.map((item) => (
+                <div key={item.label} className="flex items-center gap-1.5">
+                  <span
+                    className="w-2.5 h-2.5 rounded-full shadow-sm"
+                    style={{ backgroundColor: item.color }}
+                  />
+                  <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
+                    {item.label}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+      </div>
+
+      <div className="flex-1 min-h-0 overflow-hidden p-2 md:p-4">
+        <div className="h-full bg-white rounded-lg md:rounded-xl shadow-sm border border-slate-200 overflow-hidden">
           <CalendarView 
             events={displayedEvents} 
             onSlotClick={handleSlotClick} 
@@ -242,9 +262,9 @@ export default function CalendarPage() {
       />
 
       {isModalOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center">
-            <div className="absolute inset-0 bg-transparent" onClick={() => setIsModalOpen(false)} />
-            <div className="relative bg-white rounded-xl shadow-2xl border border-gray-200 w-full max-w-md z-10">
+        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4">
+            <div className="absolute inset-0 bg-black/40 sm:bg-black/20" onClick={() => setIsModalOpen(false)} />
+            <div className="relative bg-white rounded-t-2xl sm:rounded-xl shadow-2xl border border-gray-200 w-full sm:max-w-md z-10 max-h-[92dvh] overflow-y-auto">
                 <AppointmentModal 
                     isOpen={true} 
                     onClose={() => setIsModalOpen(false)}

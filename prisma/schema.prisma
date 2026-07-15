@@ -45,7 +45,8 @@ model Measurement {
 
 model Appointment {
   id              Int      @id @default(autoincrement())
-  clientId        Int
+  clientId        Int?
+  title           String?
   notes           String?
   createdAt       DateTime @default(now())
   durationMinutes Int
@@ -55,7 +56,9 @@ model Appointment {
   status          String   @default("SCHEDULED")
   updatedAt       DateTime @updatedAt
   date            DateTime
-  client          Client   @relation(fields: [clientId], references: [id])
+  ownerId         String?
+  client          Client?  @relation(fields: [clientId], references: [id])
+  owner           User?    @relation(fields: [ownerId], references: [id])
   service         Service  @relation(fields: [serviceId], references: [id])
 }
 
@@ -115,4 +118,5 @@ model User {
 
   // ✅ ADD THIS: A user can own many clients
   clients      Client[]
+  appointments Appointment[]
 }

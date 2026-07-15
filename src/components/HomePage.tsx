@@ -25,6 +25,7 @@ const SERVICE_COLORS: Record<string, string> = {
   'Second Fitting': '#8b5cf6',    // Purple
   'Pickup': '#10b981',            // Green
   'Rental': '#ec4899',            // Pink
+  'Other': '#64748b',             // Slate
 };
 
 // 1️⃣ Add this interface to define what the user data looks like
@@ -67,7 +68,7 @@ export default function HomePage({ user }: HomePageProps) {
         ...appt,
         start: new Date(appt.start),
         end: new Date(appt.end),
-        title: appt.client?.name || 'Unknown',
+        title: appt.title || appt.client?.name || 'Untitled',
       })) : [];
     }
   });
@@ -184,9 +185,9 @@ export default function HomePage({ user }: HomePageProps) {
 
                         {/* Client Details Container */}
                         <div className="flex-1 p-4 md:p-5 flex flex-col justify-center items-start">
-                          <h3 className="text-lg md:text-xl font-bold text-gray-900 mb-1.5 md:mb-1">{appt.client?.name || 'Unknown Client'}</h3>
+                          <h3 className="text-lg md:text-xl font-bold text-gray-900 mb-1.5 md:mb-1">{appt.title || appt.client?.name || 'Untitled'}</h3>
                           <span className="text-[10px] uppercase font-bold px-2 py-1 rounded-full text-white tracking-wide" style={{ backgroundColor: serviceColor }}>
-                            {appt.service?.name}
+                            {appt.service?.name || (appt.clientId == null ? 'Custom Event' : 'Appointment')}
                           </span>
                         </div>
                       </div>
