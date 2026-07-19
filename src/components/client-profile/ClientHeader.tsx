@@ -1,6 +1,6 @@
 "use client";
 
-import { Edit, Plus } from 'lucide-react';
+import { Edit, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button'; 
 import { ClientProfileData } from './InformationTab';
 import { useModal } from "@/hooks/use-modal-store"; 
@@ -10,9 +10,10 @@ const deepNavy = '#1E2024';
 interface ClientHeaderProps {
     client: ClientProfileData;
     onEdit: () => void;
+    onDelete: () => void;
 }
 
-export function ClientHeader({ client, onEdit }: ClientHeaderProps) {
+export function ClientHeader({ client, onEdit, onDelete }: ClientHeaderProps) {
     const { onOpen } = useModal();
 
     return (
@@ -41,6 +42,15 @@ export function ClientHeader({ client, onEdit }: ClientHeaderProps) {
                     >
                         <Edit className="h-4 w-4 mr-2" />
                         Edit Information
+                    </Button>
+
+                    <Button
+                        variant="outline"
+                        onClick={onDelete}
+                        className="flex-1 sm:flex-none text-sm border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+                    >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete Folder
                     </Button>
                     
                     <Button

@@ -17,6 +17,7 @@ import { AppointmentList } from "./client-profile/AppointmentList";
 // Modals
 import { AddMeasurementModal } from "@/components/AddMeasurementModal";
 import { EditClientModal } from "@/components/EditClientModal";
+import { DeleteClientModal } from "@/components/DeleteClientModal";
 import { AddMemberModal } from "@/components/AddMemberModal";
 import AddExpenseModal from "./AddExpenseModal";
 
@@ -37,6 +38,7 @@ export function ClientProfilePage({
   const router = useRouter();
 
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
   const [isMeasurementOpen, setIsMeasurementOpen] = useState(false);
@@ -68,6 +70,7 @@ export function ClientProfilePage({
         <ClientHeader
           client={client}
           onEdit={() => setIsEditOpen(true)}
+          onDelete={() => setIsDeleteOpen(true)}
         />
 
         <Tabs defaultValue="information" className="w-full">
@@ -198,6 +201,14 @@ export function ClientProfilePage({
             client={client}
             onClose={() => setIsEditOpen(false)}
             onSave={() => router.refresh()} 
+          />
+        )}
+
+        {isDeleteOpen && (
+          <DeleteClientModal
+            clientId={client.id}
+            clientName={client.name}
+            onClose={() => setIsDeleteOpen(false)}
           />
         )}
       </div>

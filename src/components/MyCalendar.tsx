@@ -114,30 +114,22 @@ export default function MyCalendar({ events, onSlotClick, onEventClick, onEventU
   const [view, setView] = useState<View>(Views.MONTH);
   const [date, setDate] = useState(new Date());
 
-  const availableViews: View[] = isMobile
-    ? [Views.MONTH, Views.DAY]
-    : [Views.MONTH, Views.WEEK, Views.DAY];
-
-  useEffect(() => {
-    if (isMobile && view === Views.WEEK) {
-      setView(Views.MONTH);
-    }
-  }, [isMobile, view]);
+  const availableViews: View[] = [Views.MONTH, Views.WEEK, Views.DAY];
 
   const handleNavigate = useCallback((newDate: Date) => setDate(newDate), []);
 
   const onEventDrop = useCallback(
     ({ event, start, end }: any) => {
-      if (!isMobile && onEventUpdate) onEventUpdate({ event, start, end });
+      if (onEventUpdate) onEventUpdate({ event, start, end });
     },
-    [isMobile, onEventUpdate]
+    [onEventUpdate]
   );
 
   const onEventResize = useCallback(
     ({ event, start, end }: any) => {
-      if (!isMobile && onEventUpdate) onEventUpdate({ event, start, end });
+      if (onEventUpdate) onEventUpdate({ event, start, end });
     },
-    [isMobile, onEventUpdate]
+    [onEventUpdate]
   );
 
   const { formats } = useMemo(
@@ -210,7 +202,7 @@ export default function MyCalendar({ events, onSlotClick, onEventClick, onEventU
     };
   }, []);
 
-  const needsHorizontalScroll = !isMobile && view !== Views.MONTH;
+  const needsHorizontalScroll = view === Views.WEEK || (isMobile && view === Views.DAY);
 
   return (
     <div className="h-full min-h-[420px] md:min-h-[500px] bg-white flex flex-col font-sans w-full">
@@ -235,7 +227,9 @@ export default function MyCalendar({ events, onSlotClick, onEventClick, onEventU
           .rbc-header { padding: 6px 0 !important; font-size: 0.7rem !important; }
           .rbc-timeslot-group { min-height: 48px !important; }
           .rbc-time-gutter .rbc-label { font-size: 10px !important; padding: 0 4px !important; }
-          .rbc-time-content { touch-action: pan-y; }
+          .rbc-event, .rbc-addons-dnd-resizable {
+            touch-action: none;
+          }
         }
         .rbc-month-view .rbc-day-bg.rbc-today {
           background-color: #f1f5f9 !important;
@@ -264,7 +258,7 @@ export default function MyCalendar({ events, onSlotClick, onEventClick, onEventU
           needsHorizontalScroll ? 'overflow-x-auto calendar-scroll' : 'overflow-hidden'
         }`}
       >
-        <div className={`h-full ${needsHorizontalScroll ? 'min-w-[800px]' : 'w-full'}`}>
+        <div className={`h-full ${needsHorizontalScroll ? 'min-w-[720px] md:min-w-[800px]' : 'w-full'}`}>
           <DnDCalendar
             localizer={localizer}
             events={events}
@@ -280,10 +274,10 @@ export default function MyCalendar({ events, onSlotClick, onEventClick, onEventU
             scrollToTime={new Date(0, 0, 0, 8, 0, 0)}
             step={15}
             timeslots={4}
-            onEventDrop={isMobile ? undefined : onEventDrop}
-            onEventResize={isMobile ? undefined : onEventResize}
-            draggableAccessor={() => !isMobile}
-            resizable={!isMobile}
+            onEventDrop={onEventDrop}
+            onEventResize={onEventResize}
+            draggableAccessor={() => true}
+            resizable
             selectable
             onSelectSlot={(slotInfo: any) => {
               if (onSlotClick) onSlotClick(slotInfo);
