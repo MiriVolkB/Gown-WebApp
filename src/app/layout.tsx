@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import Sidebar from "@/components/Sidebar"; 
 import Header from "@/components/Header";
+import { getUser } from "@/lib/getUser";
 
 import { ClientProvidersLayout } from "./ClientProvidersLayout"; 
 import { ModalProvider } from "@/components/providers/modal-provider";
@@ -11,13 +12,20 @@ import { ModalProvider } from "@/components/providers/modal-provider";
 export const metadata: Metadata = {
   title: "Rachelli Custom Gowns",
   description: "CRM for custom gown business",
+  icons: {
+    icon: [{ url: "/logo.jpg", type: "image/jpeg" }],
+    apple: [{ url: "/logo.jpg", type: "image/jpeg" }],
+    shortcut: "/logo.jpg",
+  },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const user = await getUser();
+
   return (
     <html lang="en">
       <head>
@@ -34,11 +42,11 @@ export default function RootLayout({
         {/* 2. Content Area Wrapper */}
         <ClientProvidersLayout>
           {/* CHANGED: Matches the new sidebar widths! (md:ml-64 lg:ml-80) */}
-<div className="flex flex-col flex-1 md:ml-64 lg:ml-80 min-h-screen w-full transition-all duration-300">
-              <ModalProvider />
+          <div className="flex flex-col flex-1 md:ml-64 lg:ml-80 min-h-screen w-full transition-all duration-300">
+            <ModalProvider />
             
             {/* 3. Global App Header */}
-            <Header />
+            <Header username={user?.username} role={user?.role} />
 
             {/* 4. Main content */}
             <main className="flex-1 p-4 md:p-8">

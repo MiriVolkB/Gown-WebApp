@@ -167,26 +167,67 @@ export default function HomePage({ user }: HomePageProps) {
 
                   {todaysAppointments.map((appt) => {
                     const serviceColor = SERVICE_COLORS[appt.service?.name] || '#0F172A';
+                    const now = new Date();
+                    const start = new Date(appt.start);
+                    const end = new Date(appt.end);
+                    const isPast = now > end;
+                    const isNow = now >= start && now <= end;
+
                     return (
                       <div
                         key={appt.id}
                         onClick={() => setSelectedEvent(appt)}
-                        className="group bg-white rounded-xl shadow-sm border border-gray-100/80 overflow-hidden hover:shadow-md transition-all cursor-pointer flex flex-col md:flex-row items-stretch"
+                        className={`group rounded-xl overflow-hidden transition-all cursor-pointer flex flex-row items-stretch ${
+                          isPast
+                            ? "bg-slate-100 border border-slate-200 shadow-none hover:bg-slate-100/90"
+                            : isNow
+                              ? "bg-white border-2 border-slate-900 shadow-md ring-2 ring-slate-900/10"
+                              : "bg-white border border-gray-100/80 shadow-sm hover:shadow-md"
+                        }`}
                       >
-                        {/* Desktop Side Color Strip */}
-                        <div className="hidden md:block w-2" style={{ backgroundColor: serviceColor }}></div>
-                        {/* Mobile Top Color Strip */}
-                        <div className="md:hidden h-2 w-full" style={{ backgroundColor: serviceColor }}></div>
+                        {/* Side Color Strip */}
+                        <div
+                          className={`shrink-0 ${isNow ? "w-2.5 sm:w-3" : "w-2"}`}
+                          style={{ backgroundColor: isPast ? "#94a3b8" : serviceColor }}
+                        ></div>
 
-                        {/* Time Container */}
-                        <div className="w-full md:w-48 p-3 md:p-4 border-b md:border-b-0 md:border-r border-gray-50 flex items-center justify-center md:justify-start font-bold text-gray-700 bg-gray-50/40 md:bg-transparent text-sm md:text-base">
-                          {format(appt.start, 'h:mm')} - {format(appt.end, 'h:mm a')}
+                        {/* Time */}
+                        <div
+                          className={`shrink-0 w-[7.5rem] sm:w-44 px-3 sm:px-4 py-3 sm:py-4 border-r flex flex-col items-start justify-center text-xs sm:text-sm md:text-base ${
+                            isPast
+                              ? "border-slate-200 text-slate-500 font-medium bg-slate-100"
+                              : isNow
+                                ? "border-slate-200 text-slate-900 font-extrabold bg-slate-50"
+                                : "border-gray-100 text-gray-700 font-bold bg-gray-50/50"
+                          }`}
+                        >
+                          {isNow && (
+                            <span className="text-[9px] sm:text-[10px] uppercase tracking-widest text-emerald-600 font-bold mb-0.5">
+                              Now
+                            </span>
+                          )}
+                          <span className="whitespace-nowrap">
+                            {format(start, 'h:mm')} - {format(end, 'h:mm a')}
+                          </span>
                         </div>
 
-                        {/* Client Details Container */}
-                        <div className="flex-1 p-4 md:p-5 flex flex-col justify-center items-start">
-                          <h3 className="text-lg md:text-xl font-bold text-gray-900 mb-1.5 md:mb-1">{appt.title || appt.client?.name || 'Untitled'}</h3>
-                          <span className="text-[10px] uppercase font-bold px-2 py-1 rounded-full text-white tracking-wide" style={{ backgroundColor: serviceColor }}>
+                        {/* Name + service */}
+                        <div className="flex-1 min-w-0 p-3 sm:p-4 md:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                          <h3
+                            className={`truncate ${
+                              isPast
+                                ? "text-base sm:text-lg md:text-xl font-semibold text-slate-500"
+                                : isNow
+                                  ? "text-lg sm:text-xl md:text-2xl font-extrabold text-slate-900"
+                                  : "text-base sm:text-lg md:text-xl font-bold text-gray-900"
+                            }`}
+                          >
+                            {appt.title || appt.client?.name || 'Untitled'}
+                          </h3>
+                          <span
+                            className="self-start sm:self-center shrink-0 text-[10px] uppercase font-bold px-2 py-1 rounded-full text-white tracking-wide"
+                            style={{ backgroundColor: isPast ? "#94a3b8" : serviceColor }}
+                          >
                             {appt.service?.name || (appt.clientId == null ? 'Custom Event' : 'Appointment')}
                           </span>
                         </div>

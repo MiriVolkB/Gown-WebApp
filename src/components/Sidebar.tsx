@@ -12,17 +12,26 @@ export default function Sidebar({ onClose }: { onClose?: () => void }) {
 
   return (
     <aside className="w-56 lg:w-80 bg-[#0B1120] text-slate-300 h-screen fixed left-0 top-0 flex flex-col border-r border-slate-800/50 shadow-2xl z-50 transition-all duration-300">      
-      <div className="h-40 lg:h-64 flex items-center justify-center border-b border-slate-800/50 relative bg-[#0B1120] transition-all duration-300">
-        <div className="relative w-full h-full">
-            <Image 
-              src="/logo.jpg" 
-              alt="Rachelli Custom Gowns" 
-              fill
-              className="object-cover" 
-              priority 
-            />
-            <div className="absolute bottom-0 left-0 w-full h-12 bg-gradient-to-t from-[#0B1120] to-transparent"></div>
-        </div>
+      <div className="w-full aspect-[4/3] relative bg-[#0B1120] border-b border-slate-800/50 overflow-hidden shrink-0">
+        <Image 
+          src="/logo.jpg" 
+          alt="Rachelli Custom Gowns" 
+          fill
+          sizes="(max-width: 1024px) 224px, 320px"
+          className="object-cover object-center" 
+          priority 
+        />
+        <div
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-12"
+          style={{
+            background:
+              "linear-gradient(to top, #0B1120 0%, rgba(11,17,32,0.75) 35%, rgba(11,17,32,0.25) 70%, transparent 100%)",
+            backdropFilter: "blur(2px)",
+            WebkitBackdropFilter: "blur(2px)",
+            maskImage: "linear-gradient(to top, black 0%, black 40%, transparent 100%)",
+            WebkitMaskImage: "linear-gradient(to top, black 0%, black 40%, transparent 100%)",
+          }}
+        />
       </div>
 
       <nav className="flex-1 px-4 lg:px-6 py-8 space-y-2 lg:space-y-4 transition-all"> 

@@ -178,7 +178,12 @@ export default function CalendarPage() {
       <div className="px-4 py-3 md:px-8 md:py-6 bg-white border-b border-slate-200 flex flex-col gap-3 md:gap-4 shrink-0">
           
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <h1 className="text-xl md:text-3xl font-bold text-[#0F172A]">Calendar</h1>
+            <h1
+              className="text-4xl font-light tracking-wide"
+              style={{ color: '#1E2024', fontFamily: "'Playfair Display', serif" }}
+            >
+              Calendar
+            </h1>
             
             {/* Toggle */}
             <div className="flex items-center p-1 bg-slate-100 rounded-lg border border-slate-200 w-full sm:w-auto">

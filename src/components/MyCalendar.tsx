@@ -3,7 +3,7 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { Calendar, dateFnsLocalizer, View, Views, ToolbarProps, EventProps } from 'react-big-calendar';
 import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop';
-import { format, parse, startOfWeek, getDay } from 'date-fns';
+import { format, parse, startOfWeek, getDay, startOfDay, isBefore } from 'date-fns';
 import { enUS } from 'date-fns/locale/en-US';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
@@ -202,6 +202,14 @@ export default function MyCalendar({ events, onSlotClick, onEventClick, onEventU
     };
   }, []);
 
+  const dayPropGetter = useCallback((day: Date) => {
+    const today = startOfDay(new Date());
+    if (isBefore(startOfDay(day), today)) {
+      return { className: 'rbc-past-day' };
+    }
+    return {};
+  }, []);
+
   const needsHorizontalScroll = view === Views.WEEK || (isMobile && view === Views.DAY);
 
   return (
@@ -232,8 +240,21 @@ export default function MyCalendar({ events, onSlotClick, onEventClick, onEventU
           }
         }
         .rbc-month-view .rbc-day-bg.rbc-today {
-          background-color: #f1f5f9 !important;
+          background-color: #f8fafc !important;
           border: 2px solid #0F172A !important;
+        }
+        /* Past days — slightly gray like home appointments */
+        .rbc-day-bg.rbc-past-day,
+        .rbc-time-content .rbc-day-slot.rbc-past-day,
+        .rbc-time-header-content .rbc-header.rbc-past-day {
+          background-color: #e8edf2 !important;
+        }
+        .rbc-date-cell.rbc-past-day,
+        .rbc-date-cell.rbc-past-day a {
+          color: #94a3b8 !important;
+        }
+        .rbc-month-view .rbc-day-bg.rbc-past-day.rbc-off-range-bg {
+          background-color: #e2e8f0 !important;
         }
         .rbc-header {
           padding: 8px 0 !important;
@@ -249,6 +270,9 @@ export default function MyCalendar({ events, onSlotClick, onEventClick, onEventU
         .rbc-time-view { border-top: 1px solid #e5e7eb; }
         .rbc-timeslot-group { min-height: 60px !important; }
         .rbc-time-view .rbc-today { background-color: #f8fafc !important; }
+        .rbc-time-view .rbc-day-slot.rbc-past-day {
+          background-color: #e8edf2 !important;
+        }
         .calendar-scroll::-webkit-scrollbar { display: none; }
         .calendar-scroll { -ms-overflow-style: none; scrollbar-width: none; }
       `}</style>
@@ -288,6 +312,7 @@ export default function MyCalendar({ events, onSlotClick, onEventClick, onEventU
             components={components}
             formats={formats}
             eventPropGetter={eventStyleGetter}
+            dayPropGetter={dayPropGetter}
             className="flex-1"
             popup
             length={isMobile ? 2 : 3}

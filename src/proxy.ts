@@ -3,6 +3,8 @@ import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import * as jose from "jose"
 
+const PUBLIC_FILE = /\.(?:ico|png|jpg|jpeg|gif|webp|svg|txt|xml|json|woff2?|map)$/i
+
 export async function proxy(req: NextRequest) {
   const token = await req.cookies.get("token")?.value
   const { pathname } = req.nextUrl
@@ -14,7 +16,8 @@ export async function proxy(req: NextRequest) {
     pathname.startsWith('/_next') ||
     pathname.startsWith('/api') ||
     pathname.startsWith('/static') ||
-    pathname === '/login'
+    pathname === '/login' ||
+    PUBLIC_FILE.test(pathname)
   ) {
     return NextResponse.next()
   }
@@ -54,9 +57,9 @@ export async function proxy(req: NextRequest) {
   }
 }
 
-// 6️⃣ Proxy matcher — protect everything except login/static/api
+// 6️⃣ Proxy matcher — protect pages, skip API/static/public assets
 export const config = {
   matcher: [
-    '/((?!api|_next/static|_next/image|favicon.ico).*)'
+    '/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)'
   ],
 }

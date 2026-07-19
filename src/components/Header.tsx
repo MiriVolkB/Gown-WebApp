@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Plus, UserPlus, Calendar, CreditCard, Receipt, Menu, LogOut } from 'lucide-react';
+import { Plus, UserPlus, Calendar, CreditCard, Receipt, Menu, LogOut, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useModal } from "@/hooks/use-modal-store";
 import {
@@ -15,9 +15,15 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import Sidebar from "@/components/Sidebar"; 
+import Sidebar from "@/components/Sidebar";
+import { GlobalClientSearch } from "@/components/GlobalClientSearch";
 
-export default function Header() {
+interface HeaderProps {
+  username?: string | null;
+  role?: string | null;
+}
+
+export default function Header({ username, role }: HeaderProps) {
     const { onOpen } = useModal();
     const router = useRouter();
     const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -34,14 +40,23 @@ export default function Header() {
         setIsLoggingOut(false);
       }
     };
+
+    const initials = username
+      ? username
+          .split(/\s+/)
+          .map((part) => part[0])
+          .join("")
+          .slice(0, 2)
+          .toUpperCase()
+      : "";
     
   return (
-    <header className="h-16 border-b border-slate-200 bg-white sticky top-0 z-50 px-4 md:px-8 flex items-center justify-between gap-2">
+    <header className="h-16 border-b border-slate-200 bg-white sticky top-0 z-50 px-3 sm:px-4 md:px-8 flex items-center justify-between gap-2">
       
       {/* MOBILE HAMBURGER MENU */}
       <Sheet open={isMobileNavOpen} onOpenChange={setIsMobileNavOpen}>
         <SheetTrigger asChild>
-          <Button variant="ghost" size="icon" className="md:hidden mr-1">
+          <Button variant="ghost" size="icon" className="md:hidden mr-1 shrink-0">
             <Menu className="h-6 w-6 text-slate-700" />
             <span className="sr-only">Toggle Menu</span>
           </Button>
@@ -52,22 +67,54 @@ export default function Header() {
       </Sheet>
 
       {/* GLOBAL SEARCH */}
-      <div className="flex-1 max-w-xl">
-        <div className="relative group">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-          <input 
-            type="text" 
-            placeholder="Search clients..." 
-            className="w-full pl-10 pr-4 py-2 bg-slate-50 border-none rounded-lg outline-none focus:ring-2 focus:ring-slate-100 transition-all"
-          />
-        </div>
+      <div className="flex-1 min-w-0 max-w-xl">
+        {username ? (
+          <GlobalClientSearch />
+        ) : (
+          <div className="h-9" aria-hidden />
+        )}
       </div>
 
-      {/* QUICK ACTIONS + LOGOUT */}
-      <div className="flex items-center gap-2 ml-2 md:ml-8">
+      {/* USER + QUICK ACTIONS + LOGOUT */}
+      <div className="flex items-center gap-1.5 sm:gap-2 ml-1 sm:ml-2 md:ml-8 shrink-0">
+        {username && (
+          <>
+            {/* Mobile: avatar only */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div
+                  className="sm:hidden flex h-9 w-9 items-center justify-center rounded-full bg-slate-900 text-white text-xs font-semibold"
+                  aria-label={`Signed in as ${username}`}
+                >
+                  {initials || <User className="h-4 w-4" />}
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" sideOffset={6}>
+                {username}
+                {role ? ` · ${role}` : ""}
+              </TooltipContent>
+            </Tooltip>
+
+            {/* Tablet/Desktop: name + optional role */}
+            <div className="hidden sm:flex items-center gap-2.5 max-w-[10rem] md:max-w-[14rem] lg:max-w-none px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-100">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-900 text-white text-xs font-semibold">
+                {initials || <User className="h-4 w-4" />}
+              </div>
+              <div className="min-w-0 leading-tight">
+                <p className="text-sm font-medium text-slate-900 truncate">{username}</p>
+                {role && (
+                  <p className="text-[10px] uppercase tracking-wider text-slate-400 truncate">
+                    {role}
+                  </p>
+                )}
+              </div>
+            </div>
+          </>
+        )}
+
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button className="bg-slate-900 text-white hover:bg-slate-800 gap-2 px-3 md:px-4 shadow-sm">
+            <Button className="bg-slate-900 text-white hover:bg-slate-800 gap-2 px-2.5 sm:px-3 md:px-4 shadow-sm">
               <Plus className="h-4 w-4" />
               <span className="hidden sm:inline">Quick Action</span>
             </Button>
