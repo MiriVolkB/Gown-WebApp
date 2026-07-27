@@ -1,19 +1,26 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { ChevronDown, CheckCircle2, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { useRouter } from 'next/navigation';
 import { BaseModal } from '@/components/BaseModal';
 import type { AppointmentSavePayload, BookingType } from '@/types';
 
-const SERVICE_OPTIONS = [
+const FALLBACK_SERVICES = [
   'First Appointment',
   'First Fitting',
   'Second Fitting',
   'Pickup',
   'Rental',
 ];
+
+type ServiceOption = {
+  id: number;
+  name: string;
+  defaultDurationMin: number;
+  active: boolean;
+};
 
 interface AppointmentModalProps {
   isOpen: boolean;
@@ -38,7 +45,15 @@ export default function AppointmentModal({
   const [clientId, setClientId] = useState<number | null>(null);
   const [clientPhone, setClientPhone] = useState('');
   const [eventTitle, setEventTitle] = useState('');
-  const [serviceName, setServiceName] = useState(SERVICE_OPTIONS[0]);
+  const [services, setServices] = useState<ServiceOption[]>([]);
+  const serviceNames = useMemo(
+    () =>
+      services.length
+        ? services.filter((s) => s.active).map((s) => s.name)
+        : FALLBACK_SERVICES,
+    [services]
+  );
+  const [serviceName, setServiceName] = useState(FALLBACK_SERVICES[0]);
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
   const [duration, setDuration] = useState('30');
@@ -65,10 +80,22 @@ export default function AppointmentModal({
         if (Array.isArray(data)) setClients(data);
       })
       .catch((err) => console.error(err));
+
+    fetch('/api/services')
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) setServices(data);
+      })
+      .catch((err) => console.error(err));
   }, []);
 
   useEffect(() => {
     if (!isOpen) return;
+
+    const names = services.length
+      ? services.filter((s) => s.active).map((s) => s.name)
+      : FALLBACK_SERVICES;
+    const defaultService = names[0] || FALLBACK_SERVICES[0];
 
     if (initialData) {
       const resource = initialData.resource || initialData;
@@ -83,7 +110,7 @@ export default function AppointmentModal({
         setClientName('');
         setClientId(null);
         setClientPhone('');
-        setServiceName(SERVICE_OPTIONS[0]);
+        setServiceName(defaultService);
       } else {
         setEventTitle('');
         setClientName(resource.client?.name || initialData.title || '');
@@ -91,9 +118,11 @@ export default function AppointmentModal({
         setClientPhone(resource.clientPhone || resource.client?.phone || '');
         const currentService = resource.service?.name;
         setServiceName(
-          SERVICE_OPTIONS.includes(currentService)
+          currentService &&
+            (names.includes(currentService) ||
+              services.some((s) => s.name === currentService))
             ? currentService
-            : SERVICE_OPTIONS[0]
+            : defaultService
         );
       }
 
@@ -122,7 +151,7 @@ export default function AppointmentModal({
       setClientId(null);
       setClientPhone('');
       setEventTitle('');
-      setServiceName(SERVICE_OPTIONS[0]);
+      setServiceName(defaultService);
 
       if (selectedDate && !isNaN(selectedDate.getTime())) {
         setDate(format(selectedDate, 'yyyy-MM-dd'));
@@ -131,9 +160,11 @@ export default function AppointmentModal({
       }
 
       if (selectedTime) setTime(selectedTime);
-      setDuration('30');
+      const matched = services.find((s) => s.name === defaultService);
+      setDuration(String(matched?.defaultDurationMin || 30));
       setNotes('');
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-init when modal opens / slot changes
   }, [isOpen, selectedDate, selectedTime, initialData]);
 
   const handleBookingTypeChange = (type: BookingType) => {
@@ -378,13 +409,23 @@ export default function AppointmentModal({
                   <select
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none bg-white appearance-none focus:ring-2 focus:ring-slate-900"
                     value={serviceName}
-                    onChange={(e) => setServiceName(e.target.value)}
+                    onChange={(e) => {
+                      const name = e.target.value;
+                      setServiceName(name);
+                      const matched = services.find((s) => s.name === name);
+                      if (matched?.defaultDurationMin) {
+                        setDuration(String(matched.defaultDurationMin));
+                      }
+                    }}
                   >
-                    {SERVICE_OPTIONS.map((s) => (
+                    {serviceNames.map((s) => (
                       <option key={s} value={s}>
                         {s}
                       </option>
                     ))}
+                    {serviceName && !serviceNames.includes(serviceName) && (
+                      <option value={serviceName}>{serviceName}</option>
+                    )}
                   </select>
                   <ChevronDown className="absolute right-3 top-3 w-4 h-4 text-gray-400 pointer-events-none" />
                 </div>

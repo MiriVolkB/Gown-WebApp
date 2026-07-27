@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Eye, EyeOff } from "lucide-react"
+import { markGuestWelcomePending } from "@/components/GuestWelcomeModal"
 
 export default function LoginPage() {
 
@@ -13,8 +14,20 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
 
-  const handleLogin = async () => {
+  const finishLogin = async (res: Response) => {
+    if (!res.ok) return false
 
+    const data = await res.json().catch(() => ({}))
+    if (data.role === "GUEST") {
+      markGuestWelcomePending()
+    }
+
+    router.push("/")
+    router.refresh()
+    return true
+  }
+
+  const handleLogin = async () => {
     setLoading(true)
 
     const res = await fetch("/api/login", {
@@ -27,10 +40,8 @@ export default function LoginPage() {
 
     setLoading(false)
 
-    if (res.ok) {
-      router.push("/")
-      router.refresh()
-    } else {
+    const ok = await finishLogin(res)
+    if (!ok) {
       alert("Invalid username or password")
     }
   }
@@ -50,10 +61,8 @@ export default function LoginPage() {
 
     setLoading(false)
 
-    if (res.ok) {
-      router.push("/")
-      router.refresh()
-    } else {
+    const ok = await finishLogin(res)
+    if (!ok) {
       alert("Guest login failed. Check backend configuration.")
     }
   }

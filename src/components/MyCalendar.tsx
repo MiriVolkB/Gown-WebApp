@@ -213,9 +213,29 @@ export default function MyCalendar({ events, onSlotClick, onEventClick, onEventU
   const needsHorizontalScroll = view === Views.WEEK || (isMobile && view === Views.DAY);
 
   return (
-    <div className="h-full min-h-[420px] md:min-h-[500px] bg-white flex flex-col font-sans w-full">
+    <div className="h-full min-h-0 bg-white flex flex-col font-sans w-full">
       <style>{`
-        .rbc-calendar { height: 100%; display: flex; flex-direction: column; }
+        .rbc-calendar {
+          height: 100%;
+          display: flex;
+          flex-direction: column;
+          min-height: 0;
+        }
+        /* Month view must share height with the toolbar — height:100% overflows and clips the last row */
+        .rbc-month-view {
+          flex: 1 1 0 !important;
+          height: auto !important;
+          min-height: 0 !important;
+        }
+        .rbc-month-row {
+          flex: 1 1 0 !important;
+          min-height: 0 !important;
+        }
+        .rbc-time-view {
+          flex: 1 1 0 !important;
+          min-height: 0 !important;
+          border-top: 1px solid #e5e7eb;
+        }
         .rbc-month-view .rbc-event:not(.wedding-event-large) {
           padding: 0px 2px !important;
           min-height: 0 !important;
@@ -230,7 +250,6 @@ export default function MyCalendar({ events, onSlotClick, onEventClick, onEventU
             line-height: 16px !important;
             font-size: 9px !important;
           }
-          .rbc-month-row { min-height: 64px !important; }
           .rbc-date-cell { padding: 2px 4px !important; font-size: 11px !important; }
           .rbc-header { padding: 6px 0 !important; font-size: 0.7rem !important; }
           .rbc-timeslot-group { min-height: 48px !important; }
@@ -241,7 +260,8 @@ export default function MyCalendar({ events, onSlotClick, onEventClick, onEventU
         }
         .rbc-month-view .rbc-day-bg.rbc-today {
           background-color: #f8fafc !important;
-          border: 2px solid #0F172A !important;
+          /* inset shadow so the today ring isn't clipped by row overflow:hidden */
+          box-shadow: inset 0 0 0 2px #0F172A !important;
         }
         /* Past days — slightly gray like home appointments */
         .rbc-day-bg.rbc-past-day,
@@ -267,7 +287,6 @@ export default function MyCalendar({ events, onSlotClick, onEventClick, onEventU
           .rbc-header { padding: 12px 0 !important; font-size: 0.9rem; }
         }
         .rbc-allday-cell { display: none !important; }
-        .rbc-time-view { border-top: 1px solid #e5e7eb; }
         .rbc-timeslot-group { min-height: 60px !important; }
         .rbc-time-view .rbc-today { background-color: #f8fafc !important; }
         .rbc-time-view .rbc-day-slot.rbc-past-day {
