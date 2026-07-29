@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { Shield } from 'lucide-react';
+import { Shield, X } from 'lucide-react';
 
 const STORAGE_KEY = 'showGuestWelcome';
 const EVENT_NAME = 'guest-welcome';
@@ -74,10 +74,18 @@ export function GuestWelcomeModal() {
       aria-labelledby="guest-welcome-title"
     >
       <div
-        className={`w-full max-w-xl bg-white rounded-3xl shadow-2xl overflow-hidden transition-all duration-300 ${
+        className={`relative w-full max-w-xl bg-white rounded-3xl shadow-2xl overflow-hidden transition-all duration-300 ${
           leaving ? 'opacity-0 scale-95' : 'opacity-100 scale-100'
         }`}
       >
+        <button
+          type="button"
+          onClick={dismiss}
+          aria-label="Close"
+          className="absolute top-4 right-4 z-10 p-2 text-gray-400 hover:text-slate-900 hover:bg-slate-100 rounded-full transition-colors"
+        >
+          <X className="h-5 w-5" />
+        </button>
         <div className="px-8 sm:px-12 pt-12 pb-12 flex flex-col items-center text-center">
           <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mb-6">
             <Shield className="w-8 h-8 text-[#1E2024]" strokeWidth={1.75} />

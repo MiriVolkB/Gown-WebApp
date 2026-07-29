@@ -64,17 +64,19 @@ export default function HomePage({ user }: HomePageProps) {
     queryFn: async () => {
       const res = await fetch('/api/appointments');
       const data = await res.json();
-      return Array.isArray(data) ? data.map(appt => ({
-        ...appt,
-        start: new Date(appt.start),
-        end: new Date(appt.end),
-        title: appt.title || appt.client?.name || 'Untitled',
-      })) : [];
-    }
+      return Array.isArray(data) ? data : [];
+    },
+    staleTime: 60_000,
   });
 
   const todaysAppointments = appointments
-    .filter((appt) => isSameDay(new Date(appt.start), new Date()))
+    .map((appt) => ({
+      ...appt,
+      start: new Date(appt.start),
+      end: new Date(appt.end),
+      title: appt.title || appt.client?.name || 'Untitled',
+    }))
+    .filter((appt) => isSameDay(appt.start, new Date()))
     .sort((a, b) => a.start.getTime() - b.start.getTime());
 
   // --- MUTATIONS ---

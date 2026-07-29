@@ -34,23 +34,22 @@ export default async function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap" rel="stylesheet" />
       </head>
       <body className="antialiased flex bg-slate-50 min-h-screen w-full overflow-x-hidden">
-        {/* 1. Sidebar (Hidden on small screens, shown on desktop) */}
-        <div className="hidden md:block">
-          <Sidebar />
-        </div>
-
-        {/* 2. Content Area Wrapper */}
         <ClientProvidersLayout>
-          {/* CHANGED: Matches the new sidebar widths! (md:ml-64 lg:ml-80) */}
+          {/* 1. Sidebar (Hidden on small screens, shown on desktop) */}
+          <div className="hidden md:block">
+            <Sidebar />
+          </div>
+
+          {/* 2. Content Area Wrapper */}
           <div className="flex flex-col flex-1 md:ml-64 lg:ml-80 min-h-screen w-full transition-all duration-300">
             <ModalProvider />
-            
+
             {/* 3. Global App Header */}
             <Header username={user?.username} role={user?.role} />
 
             {/* 4. Main content */}
             <main className="flex-1 p-4 md:p-8">
-              {children} 
+              {children}
             </main>
           </div>
         </ClientProvidersLayout>

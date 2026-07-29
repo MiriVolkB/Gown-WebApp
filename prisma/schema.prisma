@@ -25,6 +25,9 @@ model Client {
   appointments Appointment[]
   payments     Payment[]
   projects     Project[]
+
+  @@index([ownerId])
+  @@index([WeddingDate])
 }
 
 model Measurement {
@@ -60,6 +63,9 @@ model Appointment {
   client          Client?  @relation(fields: [clientId], references: [id])
   owner           User?    @relation(fields: [ownerId], references: [id])
   service         Service  @relation(fields: [serviceId], references: [id])
+
+  @@index([ownerId])
+  @@index([start])
 }
 
 model Service {

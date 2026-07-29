@@ -4,11 +4,31 @@ import { CreateClientSchema } from "@/lib/validation/client.schema";
 import { getUser } from "@/lib/getUser";
 
 // --- GET all families ---
-export async function GET() {
+// ?fields=weddings — lightweight list for calendar wedding dates only
+export async function GET(req: Request) {
   try {
     const user = await getUser();
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(req.url);
+    const fields = searchParams.get("fields");
+
+    if (fields === "weddings") {
+      const weddings = await prisma.client.findMany({
+        where: {
+          ownerId: user.id,
+          WeddingDate: { not: null },
+        },
+        select: {
+          id: true,
+          name: true,
+          WeddingDate: true,
+        },
+        orderBy: { WeddingDate: "asc" },
+      });
+      return NextResponse.json(weddings);
     }
 
     const clients = await prisma.client.findMany({

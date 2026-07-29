@@ -9,8 +9,6 @@ export async function proxy(req: NextRequest) {
   const token = await req.cookies.get("token")?.value
   const { pathname } = req.nextUrl
 
-  console.log("Proxy checking path:", pathname)
-
   // 1️⃣ Skip proxy for static files, login page, and API routes
   if (
     pathname.startsWith('/_next') ||
@@ -24,7 +22,6 @@ export async function proxy(req: NextRequest) {
 
   // 2️⃣ No token → redirect to login
   if (!token) {
-    console.log("No token found, redirecting...")
     return NextResponse.redirect(new URL("/login", req.url))
   }
 

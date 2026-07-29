@@ -1,18 +1,19 @@
 "use client"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useEffect, useState } from "react"
 import { Eye, EyeOff } from "lucide-react"
 import { markGuestWelcomePending } from "@/components/GuestWelcomeModal"
 
 export default function LoginPage() {
-
-  const router = useRouter()
-
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
+
+  // Warm the DB connection so the first login isn't paying cold-start latency.
+  useEffect(() => {
+    fetch("/api/login", { method: "HEAD" }).catch(() => {})
+  }, [])
 
   const finishLogin = async (res: Response) => {
     if (!res.ok) return false
@@ -22,48 +23,54 @@ export default function LoginPage() {
       markGuestWelcomePending()
     }
 
-    router.push("/")
-    router.refresh()
+    // Full navigation once — avoids router.push + refresh double-fetching home APIs.
+    window.location.assign("/")
     return true
   }
 
   const handleLogin = async () => {
     setLoading(true)
 
-    const res = await fetch("/api/login", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ username, password })
-    })
+    try {
+      const res = await fetch("/api/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ username, password }),
+      })
 
-    setLoading(false)
-
-    const ok = await finishLogin(res)
-    if (!ok) {
-      alert("Invalid username or password")
+      const ok = await finishLogin(res)
+      if (!ok) {
+        setLoading(false)
+        alert("Invalid username or password")
+      }
+    } catch {
+      setLoading(false)
+      alert("Login failed. Please try again.")
     }
   }
 
-  // ✅ New function specifically for the 1-Click login
   const handleGuestLogin = async () => {
     setLoading(true)
 
-    const res = await fetch("/api/login", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      // Hardcode the guest credentials we added to the backend
-      body: JSON.stringify({ username: "Guest", password: "123456" })
-    })
+    try {
+      const res = await fetch("/api/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ username: "Guest", password: "123456" }),
+      })
 
-    setLoading(false)
-
-    const ok = await finishLogin(res)
-    if (!ok) {
-      alert("Guest login failed. Check backend configuration.")
+      const ok = await finishLogin(res)
+      if (!ok) {
+        setLoading(false)
+        alert("Guest login failed. Check backend configuration.")
+      }
+    } catch {
+      setLoading(false)
+      alert("Guest login failed. Please try again.")
     }
   }
 
@@ -113,14 +120,12 @@ export default function LoginPage() {
           {loading ? "Logging in..." : "Login"}
         </button>
 
-        {/* ✅ Visual Divider */}
         <div className="relative flex py-5 items-center">
           <div className="flex-grow border-t border-gray-300"></div>
           <span className="flex-shrink-0 mx-4 text-gray-400 text-sm">or</span>
           <div className="flex-grow border-t border-gray-300"></div>
         </div>
 
-        {/* ✅ The Recruiter Button */}
         <button
           onClick={handleGuestLogin}
           disabled={loading}

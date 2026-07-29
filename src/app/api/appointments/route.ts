@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 import { getUser } from '@/lib/getUser';
-
-const prisma = new PrismaClient();
+import {
+  clearAppointmentsCache,
+  getAppointmentsCache,
+  setAppointmentsCache,
+} from '@/lib/appointments-cache';
 
 const ownedAppointmentWhere = (userId: string) => ({
   OR: [
@@ -11,7 +14,24 @@ const ownedAppointmentWhere = (userId: string) => ({
   ],
 });
 
-// GET: Fetch all appointments
+type AppointmentRow = {
+  id: number;
+  start: Date;
+  end: Date;
+  title: string | null;
+  notes: string | null;
+  clientId: number | null;
+  serviceId: number;
+  status: string;
+  ownerId: string | null;
+  client_id: number | null;
+  client_name: string | null;
+  service_id: number | null;
+  service_name: string | null;
+  service_color: string | null;
+};
+
+// GET: Fetch all appointments (single SQL round-trip + short cache)
 export async function GET() {
   try {
     const user = await getUser();
@@ -19,15 +39,58 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const appointments = await prisma.appointment.findMany({
-      where: ownedAppointmentWhere(user.id),
-      include: {
-        client: true,
-        service: true,
-      },
-    });
+    const cached = getAppointmentsCache(user.id);
+    if (cached) {
+      return NextResponse.json(cached);
+    }
+
+    // One round-trip instead of Prisma's appointment + clients + services queries
+    const rows = await prisma.$queryRaw<AppointmentRow[]>`
+      SELECT
+        a.id,
+        a.start,
+        a."end",
+        a.title,
+        a.notes,
+        a."clientId",
+        a."serviceId",
+        a.status,
+        a."ownerId",
+        c.id AS client_id,
+        c.name AS client_name,
+        s.id AS service_id,
+        s.name AS service_name,
+        s.color AS service_color
+      FROM "Appointment" a
+      LEFT JOIN "Client" c ON c.id = a."clientId"
+      LEFT JOIN "Service" s ON s.id = a."serviceId"
+      WHERE a."ownerId" = ${user.id}
+         OR c."ownerId" = ${user.id}
+      ORDER BY a.start ASC
+    `;
+
+    const appointments = rows.map((row) => ({
+      id: row.id,
+      start: row.start,
+      end: row.end,
+      title: row.title,
+      notes: row.notes,
+      clientId: row.clientId,
+      serviceId: row.serviceId,
+      status: row.status,
+      ownerId: row.ownerId,
+      client: row.client_id
+        ? { id: row.client_id, name: row.client_name }
+        : null,
+      service: row.service_id
+        ? { id: row.service_id, name: row.service_name, color: row.service_color }
+        : null,
+    }));
+
+    setAppointmentsCache(user.id, appointments);
     return NextResponse.json(appointments);
   } catch (error) {
+    console.error('Appointments GET error:', error);
     return NextResponse.json({ error: 'Error fetching appointments' }, { status: 500 });
   }
 }
@@ -43,6 +106,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: 'Simulated success for demo mode' });
     }
 
+    clearAppointmentsCache(user.id);
     const body = await request.json();
 
     const existing = body.id
@@ -191,6 +255,7 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ success: true });
     }
 
+    clearAppointmentsCache(user.id);
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
     if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
