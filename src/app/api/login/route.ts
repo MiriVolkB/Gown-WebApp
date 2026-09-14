@@ -9,12 +9,13 @@ const users = [
 ]
 
 export async function POST(req: Request) {
+  console.log("🐤 CANARY: this is the real login route")
   const { username, password } = await req.json()
   const user = users.find(u => u.username === username && u.password === password)
 
   if (!user) return NextResponse.json({ error: "Invalid login" }, { status: 401 })
 
-  const token = jwt.sign({ id: user.id, role: user.role }, SECRET, { expiresIn: "1h" })
+  const token = jwt.sign({ id: user.id, role: user.role }, SECRET, { expiresIn: "1d" })
 
   const response = NextResponse.json({ success: true })
 
@@ -22,7 +23,7 @@ export async function POST(req: Request) {
     httpOnly: true,
     secure: false, // ✅ must be false for localhost
     path: "/",    // ✅ ensure cookie is available everywhere
-    maxAge: 60 * 60 // 1 hour in seconds (3600 seconds)
+    maxAge: 60 * 60 * 24 // 1 day in seconds (86400 seconds)
   })
 
   return response
