@@ -16,6 +16,7 @@ export const measurementSchema = z.object({
   SleeveLength: z.number().positive("Sleeve length must be greater than 0"),
   SleeveWidth: z.number().positive("Sleeve width must be greater than 0"),
 
+  Shoulder: z.number().positive("Shoulder must be greater than 0"),
   ShoulderToBust: z.number().positive("Shoulder to bust must be greater than 0"),
 
   notes: z.string().optional(),

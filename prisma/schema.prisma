@@ -17,10 +17,8 @@ model Client {
   Recommended  String?
   notes        String?
   createdAt    DateTime      @default(now())
-  dueDate      DateTime?     @map("needGownBy")
 
-  // ✅ ADD THESE TWO LINES:
-  ownerId         String?   // Notice the '?' makes it optional for now
+  ownerId         String?
   owner           User?     @relation(fields: [ownerId], references: [id])
   appointments Appointment[]
   payments     Payment[]
@@ -40,6 +38,7 @@ model Measurement {
   SkirtLength    Float
   SleeveLength   Float
   SleeveWidth    Float
+  Shoulder       Float
   ShoulderToBust Float
   notes          String?
   projectId      Int

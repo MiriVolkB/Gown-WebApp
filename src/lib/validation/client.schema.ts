@@ -14,8 +14,7 @@ export const CreateClientSchema = z.object({
   email: z.string().email("Invalid email").optional().or(z.literal('')),
   
   // Use string or coerce to handle the YYYY-MM-DD from the browser
-  WeddingDate: z.string().optional().nullable(),
-  dueDate: z.string().min(1, "Need Gown By date is required"),
+  WeddingDate: z.string().min(1, "Wedding date is required"),
   
   Recommended: z.string().optional(),
   // ---> ADD THESE TWO LINES <---
@@ -40,7 +39,6 @@ export const UpdateClientSchema = z.object({
     .optional(),
   email: z.string().email("Invalid email").optional().or(z.literal("")),
   WeddingDate: z.string().optional().nullable(),
-  dueDate: z.string().optional().nullable(),
   Recommended: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
 });

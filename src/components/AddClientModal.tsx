@@ -38,7 +38,6 @@ export function AddClientModal({ onClose }: { onClose: () => void }) {
       notes: "",
       Recommended: "",
       WeddingDate: "",
-      dueDate: "",
       projects: [{ memberName: "", orderType: "RENTAL", price: 2000 }],
       // NEW: Added default downpayment state
       hasDownpayment: false,
@@ -65,7 +64,6 @@ export function AddClientModal({ onClose }: { onClose: () => void }) {
     try {
       const payload = {
         ...data,
-        dueDate: new Date(data.dueDate),
         WeddingDate: data.WeddingDate ? new Date(data.WeddingDate) : null,
         // NEW: Ensure downpayment is correctly sent to your backend
         downpaymentAmount: data.hasDownpayment ? data.downpaymentAmount : 0,
@@ -162,14 +160,7 @@ export function AddClientModal({ onClose }: { onClose: () => void }) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <FormField control={form.control} name="WeddingDate" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Wedding Date</FormLabel>
-                  <FormControl><Input type="date" {...field} value={field.value ?? ""} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
-              <FormField control={form.control} name="dueDate" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Need Gown By<span className="text-red-500">*</span></FormLabel>
+                  <FormLabel>Wedding Date<span className="text-red-500">*</span></FormLabel>
                   <FormControl><Input type="date" {...field} value={field.value ?? ""} /></FormControl>
                   <FormMessage />
                 </FormItem>

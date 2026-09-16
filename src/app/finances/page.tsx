@@ -63,9 +63,8 @@ export default function FinancesPage() {
     // This shows how much money is still missing for families who have a pickup THIS month
     const balanceDueForPickupsThisMonth = Array.from(
         data.projects?.reduce((map: Map<number, any>, p: any) => {
-            // FILTER: Only look at projects where the CLIENT'S dueDate is this month
-            // In your schema, dueDate is on the Client model!
-            const d = p.client?.dueDate ? new Date(p.client.dueDate) : null;
+            // FILTER: Only look at projects where the CLIENT'S WeddingDate is this month
+            const d = p.client?.WeddingDate ? new Date(p.client.WeddingDate) : null;
             const isThisMonth = d && (selectedMonth === "all" || (d.getMonth() + 1) === selectedMonth);
 
             if (!isThisMonth) return map;
@@ -298,7 +297,7 @@ function BalanceTable({ clients, variant, copiedItems, onCopy }: { clients: any[
             <thead className={isUrgent ? "bg-rose-50/30" : "bg-orange-50/50"}>
                 <tr className={`text-[10px] font-bold uppercase tracking-[0.2em] ${isUrgent ? 'text-rose-400' : 'text-orange-400'}`}>
                     <th className="px-8 py-4">Client</th>
-                    <th className="px-8 py-4 text-center">Due Date</th>
+                    <th className="px-8 py-4 text-center">Wedding Date</th>
                     <th className="px-8 py-4 text-right">Balance</th>
                 </tr>
             </thead>
@@ -333,7 +332,7 @@ function BalanceTable({ clients, variant, copiedItems, onCopy }: { clients: any[
                                 </div>
                             </td>
                             <td className={`px-8 py-5 text-sm text-center font-medium ${isUrgent ? 'text-rose-600 font-bold' : 'text-orange-600'}`}>
-                                {client.dueDate ? new Date(client.dueDate).toLocaleDateString("en-GB") : "—"}
+                                {client.WeddingDate ? new Date(client.WeddingDate).toLocaleDateString("en-GB") : "—"}
                             </td>
                             <td className={`px-8 py-5 text-right text-2xl font-light ${isUrgent ? 'text-rose-700 font-bold' : 'text-orange-700'}`}>
                                 {balance.toLocaleString()} NIS
@@ -365,15 +364,15 @@ function computeBreakdown(
   const revenueMap = new Map<number, number>();
   const expenseMap = new Map<number, number>();
 
-  // map clientId -> {name,phone,email,dueDate}
-  const clientInfo = new Map<number, { name: string; phone: string; email: string; dueDate: string | null }>();
+  // map clientId -> {name,phone,email,WeddingDate}
+  const clientInfo = new Map<number, { name: string; phone: string; email: string; WeddingDate: string | null }>();
   (data.projects || []).forEach((p: any) => {
     if (p.client) {
       clientInfo.set(p.clientId, {
         name: p.client.name,
         phone: p.client.phone || '',
         email: p.client.email || '',
-        dueDate: p.client.dueDate
+        WeddingDate: p.client.WeddingDate
       });
     }
   });
@@ -383,7 +382,7 @@ function computeBreakdown(
     const cid = pay.clientId;
     revenueMap.set(cid, (revenueMap.get(cid) || 0) + (pay.amount || 0));
     if (!clientInfo.has(cid)) {
-      clientInfo.set(cid, { name: pay.client?.name || 'Unknown', phone: pay.client?.phone || '', email: pay.client?.email || '', dueDate: pay.client?.dueDate });
+      clientInfo.set(cid, { name: pay.client?.name || 'Unknown', phone: pay.client?.phone || '', email: pay.client?.email || '', WeddingDate: pay.client?.WeddingDate });
     }
   });
 
@@ -395,11 +394,11 @@ function computeBreakdown(
     const cid = proj.clientId;
     expenseMap.set(cid, (expenseMap.get(cid) || 0) + (exp.amount || 0));
     if (!clientInfo.has(cid)) {
-      clientInfo.set(cid, { name: proj.client?.name || 'Unknown', phone: proj.client?.phone || '', email: proj.client?.email || '', dueDate: proj.client?.dueDate });
+      clientInfo.set(cid, { name: proj.client?.name || 'Unknown', phone: proj.client?.phone || '', email: proj.client?.email || '', WeddingDate: proj.client?.WeddingDate });
     }
   });
 
-  const rows: { id: string; name: string; phone: string; email: string; dueDate: string | null; amount: number }[] = [];
+  const rows: { id: string; name: string; phone: string; email: string; WeddingDate: string | null; amount: number }[] = [];
   const allIds = new Set<number>();
   if (kind === 'revenue' || kind === 'profit') {
     revenueMap.forEach((_, cid) => allIds.add(cid));
@@ -409,27 +408,27 @@ function computeBreakdown(
   }
 
   allIds.forEach(cid => {
-    const info = clientInfo.get(cid) || { name: 'Unknown', phone: '', email: '', dueDate: null };
+    const info = clientInfo.get(cid) || { name: 'Unknown', phone: '', email: '', WeddingDate: null };
     let amt = 0;
     if (kind === 'revenue') amt = revenueMap.get(cid) || 0;
     else if (kind === 'expenses') amt = expenseMap.get(cid) || 0;
     else if (kind === 'profit') amt = (revenueMap.get(cid) || 0) - (expenseMap.get(cid) || 0);
-    rows.push({ id: String(cid), name: info.name, phone: info.phone, email: info.email, dueDate: info.dueDate, amount: amt });
+    rows.push({ id: String(cid), name: info.name, phone: info.phone, email: info.email, WeddingDate: info.WeddingDate, amount: amt });
   });
 
   rows.sort((a, b) => (b.amount || 0) - (a.amount || 0));
   return rows.filter(r => (r.amount || 0) > 0);
 }
 
-// compute balance breakdown for period: only includes clients whose dueDate falls in the selected month/year
+// compute balance breakdown for period: only includes clients whose WeddingDate falls in the selected month/year
 function computeBalances(
   data: any,
   month: number | "all",
   year: number | "all"
 ) {
-  const map = new Map<number, { id: string; name: string; phone: string; email: string; dueDate: string | null; amount: number }>();
+  const map = new Map<number, { id: string; name: string; phone: string; email: string; WeddingDate: string | null; amount: number }>();
   (data.projects || []).forEach((p: any) => {
-    const d = p.client?.dueDate ? new Date(p.client.dueDate) : null;
+    const d = p.client?.WeddingDate ? new Date(p.client.WeddingDate) : null;
     if (!d) return;
     const matchesMonth = month === "all" || (d.getMonth() + 1) === month;
     const matchesYear = year === "all" || d.getFullYear() === year;
@@ -442,7 +441,7 @@ function computeBalances(
         name: p.client?.name || 'Unknown',
         phone: p.client?.phone || '',
         email: p.client?.email || '',
-        dueDate: p.client?.dueDate,
+        WeddingDate: p.client?.WeddingDate,
         amount: 0
       });
     }
@@ -457,7 +456,7 @@ function computeBalances(
   return rows;
 }
 
-function BreakdownTable({ rows, copiedItems, onCopy }: { rows: { id: string; name: string; phone: string; email: string; dueDate: string | null; amount: number }[], copiedItems?: Record<string,boolean>, onCopy?: (text:string,id:string)=>void }) {
+function BreakdownTable({ rows, copiedItems, onCopy }: { rows: { id: string; name: string; phone: string; email: string; WeddingDate: string | null; amount: number }[], copiedItems?: Record<string,boolean>, onCopy?: (text:string,id:string)=>void }) {
     const hasValues = rows.some(r => (r.amount || 0) > 0);
     if (!rows.length || !hasValues) {
         return <p className="text-sm italic text-slate-500">No entries for the selected period.</p>;
@@ -469,7 +468,7 @@ function BreakdownTable({ rows, copiedItems, onCopy }: { rows: { id: string; nam
                     <th className="px-6 py-3">Name</th>
                     <th className="px-6 py-3">Phone</th>
                     <th className="px-6 py-3">Email</th>
-                    <th className="px-6 py-3">Due Date</th>
+                    <th className="px-6 py-3">Wedding Date</th>
                     <th className="px-6 py-3 text-right">Amount</th>
                 </tr>
             </thead>
@@ -506,7 +505,7 @@ function BreakdownTable({ rows, copiedItems, onCopy }: { rows: { id: string; nam
                             </div>
                         </td>
                         <td className="px-6 py-4 text-sm text-slate-500">
-                            {r.dueDate ? new Date(r.dueDate).toLocaleDateString("en-GB") : "—"}
+                            {r.WeddingDate ? new Date(r.WeddingDate).toLocaleDateString("en-GB") : "—"}
                         </td>
                         <td className="px-6 py-4 text-right font-light text-2xl text-slate-700">{(r.amount || 0).toLocaleString()} NIS</td>
                     </tr>

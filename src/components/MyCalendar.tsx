@@ -111,7 +111,7 @@ export interface CalendarViewProps {
 
 export default function MyCalendar({ events, onSlotClick, onEventClick, onEventUpdate }: CalendarViewProps) {
   const isMobile = useIsMobile();
-  const [view, setView] = useState<View>(Views.MONTH);
+  const [view, setView] = useState<View>(Views.WEEK);
   const [date, setDate] = useState(new Date());
 
   const availableViews: View[] = [Views.MONTH, Views.WEEK, Views.DAY];

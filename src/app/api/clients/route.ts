@@ -5,6 +5,54 @@ import { getUser } from "@/lib/getUser";
 
 // --- GET all families ---
 // ?fields=weddings — lightweight list for calendar wedding dates only
+// export async function GET(req: Request) {
+//   try {
+//     const user = await getUser();
+//     if (!user) {
+//       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+//     }
+
+//     const { searchParams } = new URL(req.url);
+//     const fields = searchParams.get("fields");
+
+//     if (fields === "weddings") {
+//       const weddings = await prisma.client.findMany({
+//         where: {
+//           ownerId: user.id,
+//           WeddingDate: { not: null },
+//         },
+//         select: {
+//           id: true,
+//           name: true,
+//           WeddingDate: true,
+//         },
+//         orderBy: { WeddingDate: "asc" },
+//       });
+//       return NextResponse.json(weddings);
+//     }
+
+//     const clients = await prisma.client.findMany({
+//       where: { ownerId: user.id },
+//       include: {
+//         projects: {
+//           include: {
+//             expenses: true,
+//           },
+//         },
+//         payments: true,
+//         appointments: true,
+//       },
+//       orderBy: { createdAt: "desc" },
+//     });
+//     return NextResponse.json(clients);
+//   } catch (error) {
+//     console.error("Fetch Error:", error);
+//     return NextResponse.json({ error: "Failed to fetch" }, { status: 500 });
+//   }
+// }
+
+// --- GET all families ---
+// ?fields=weddings — lightweight list for calendar wedding dates only
 export async function GET(req: Request) {
   try {
     const user = await getUser();
@@ -31,25 +79,45 @@ export async function GET(req: Request) {
       return NextResponse.json(weddings);
     }
 
+    // Lightweight list for the clients grid — only fields the UI actually reads
     const clients = await prisma.client.findMany({
       where: { ownerId: user.id },
-      include: {
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        WeddingDate: true,
+
+        // Next upcoming appointment only
+        appointments: {
+          where: { start: { gte: new Date() } },
+          orderBy: { start: "asc" },
+          take: 1,
+          select: { start: true },
+        },
+        // Gown count + finance calc (price/expenses) + unpaid pickup stripe
         projects: {
-          include: {
-            expenses: true,
+          select: {
+            id: true,
+            price: true,
+            isPickedUp: true,
+            expenses: { select: { amount: true } },
           },
         },
-        payments: true,
-        appointments: true,
+        payments: {
+          select: { amount: true },
+        },
       },
       orderBy: { createdAt: "desc" },
     });
+
     return NextResponse.json(clients);
   } catch (error) {
     console.error("Fetch Error:", error);
     return NextResponse.json({ error: "Failed to fetch" }, { status: 500 });
   }
 }
+
 
 // --- CREATE new family folder and initial gown ---
 export async function POST(req: Request) {
@@ -84,7 +152,6 @@ export async function POST(req: Request) {
         Recommended: val.Recommended || null,
         notes: val.notes || null,
         WeddingDate: val.WeddingDate ? new Date(val.WeddingDate) : null,
-        dueDate: val.dueDate ? new Date(val.dueDate) : null,
         ownerId: user.id,
 
         projects: {

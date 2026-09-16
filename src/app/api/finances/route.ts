@@ -69,9 +69,9 @@ export async function GET(req: Request) {
             const balance = totalBill - totalPaid;
 
             if (balance > 0) {
-                const hasPassedDueDate = client.dueDate && new Date(client.dueDate) < new Date();
+                const hasPassedWeddingDate = client.WeddingDate && new Date(client.WeddingDate) < new Date();
 
-                if (hasPassedDueDate) {
+                if (hasPassedWeddingDate) {
                     redFlags.push(client);
                 } else {
                     generalOwed.push(client);

@@ -29,7 +29,6 @@ export function InformationTab({ client }: { client: ClientProfileData }) {
     name: client.name,
     phone: client.phone,
     email: client.email || '',
-    dueDate: client.dueDate,
     WeddingDate: client.WeddingDate,
   });
 
@@ -39,7 +38,6 @@ export function InformationTab({ client }: { client: ClientProfileData }) {
       name: client.name,
       phone: client.phone,
       email: client.email || '',
-      dueDate: client.dueDate,
       WeddingDate: client.WeddingDate,
     });
   }, [client]); // Runs whenever the 'client' prop changes
@@ -50,7 +48,7 @@ const handleFieldSave = async (field: string, value: string) => {
       const updateData: any = { [field]: value };
       
       // Handle date fields
-      if (field === 'dueDate' || field === 'WeddingDate') {
+      if (field === 'WeddingDate') {
         updateData[field] = value ? new Date(value).toISOString() : null;
       }
 
@@ -123,14 +121,6 @@ const handleFieldSave = async (field: string, value: string) => {
                     Project Timeline
                   </h4>
                   <div className="space-y-6">
-                    <DetailItem
-                      label="Due Date"
-                      value={clientData.dueDate ? new Date(clientData.dueDate).toLocaleDateString("en-GB") : 'N/A'}
-                      field="dueDate"
-                      type="date"
-                      editable={true}
-                      onSave={handleFieldSave}
-                    />
                     <DetailItem
                       label="Wedding Date"
                       value={clientData.WeddingDate ? new Date(clientData.WeddingDate).toLocaleDateString("en-GB") : 'N/A'}

@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { format, isSameDay } from 'date-fns';
-import { Calendar, Plus, UserPlus } from 'lucide-react';
+import { Calendar, Edit, Plus, UserPlus } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 
@@ -15,7 +15,6 @@ import { Button } from '@/components/ui/button'; // Adjust the path to wherever 
 // Types
 import {
   ClientListItem,
-  AppointmentWithService,
 } from '@/types';
 
 // Keeping these consistent for visual continuity
@@ -44,7 +43,8 @@ export default function HomePage({ user }: HomePageProps) {
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingData, setEditingData] = useState<any | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
 
   const queryClient = useQueryClient();
@@ -80,20 +80,32 @@ export default function HomePage({ user }: HomePageProps) {
     .sort((a, b) => a.start.getTime() - b.start.getTime());
 
   // --- MUTATIONS ---
-  const addAppointmentMutation = useMutation({
+  const saveAppointmentMutation = useMutation({
     mutationFn: async (data: any) => {
       const res = await fetch('/api/appointments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
+      if (!res.ok) throw new Error('Failed to save');
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['appointments'] });
-      setIsCreateOpen(false);
+      setIsModalOpen(false);
+      setEditingData(null);
     },
   });
+
+  const openCreateModal = () => {
+    setEditingData(null);
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (appt: any) => {
+    setEditingData(appt);
+    setIsModalOpen(true);
+  };
 
   const handleDelete = async (id: number) => {
     await fetch(`/api/appointments?id=${id}`, { method: 'DELETE' });
@@ -137,7 +149,7 @@ export default function HomePage({ user }: HomePageProps) {
                 </Button>
                 <Button
                   variant="dashboardPrimary"
-                  onClick={() => setIsCreateOpen(true)}
+                  onClick={openCreateModal}
                   className="flex justify-center items-center gap-2 px-5 py-2.5 bg-white text-[#0F172A] rounded-full hover:bg-gradient-to-r hover:from-white hover:to-blue-50 transition-all font-bold text-sm shadow w-full sm:w-auto"
                 >
                   <Plus className="w-4 h-4" />
@@ -159,7 +171,7 @@ export default function HomePage({ user }: HomePageProps) {
               ) : todaysAppointments.length === 0 ? (
                 <div className="bg-white/80 backdrop-blur rounded-2xl p-10 md:p-16 text-center border border-dashed border-gray-300">
                   <h3 className="text-xl font-bold text-gray-700">No appointments today</h3>
-                  <Button variant="link" onClick={() => setIsCreateOpen(true)} className="text-blue-600 font-medium hover:underline mt-4">
+                  <Button variant="link" onClick={openCreateModal} className="text-blue-600 font-medium hover:underline mt-4">
                     Add an appointment manually
                   </Button>
                 </div>
@@ -174,17 +186,20 @@ export default function HomePage({ user }: HomePageProps) {
                     const end = new Date(appt.end);
                     const isPast = now > end;
                     const isNow = now >= start && now <= end;
+                    const isSelected = selectedEvent?.id === appt.id;
 
                     return (
                       <div
                         key={appt.id}
                         onClick={() => setSelectedEvent(appt)}
                         className={`group rounded-xl overflow-hidden transition-all cursor-pointer flex flex-row items-stretch ${
-                          isPast
-                            ? "bg-slate-100 border border-slate-200 shadow-none hover:bg-slate-100/90"
-                            : isNow
-                              ? "bg-white border-2 border-slate-900 shadow-md ring-2 ring-slate-900/10"
-                              : "bg-white border border-gray-100/80 shadow-sm hover:shadow-md"
+                          isSelected
+                            ? "bg-blue-50 border-2 border-blue-400 shadow-md ring-2 ring-blue-400/20"
+                            : isPast
+                              ? "bg-slate-100 border border-slate-200 shadow-none hover:bg-slate-100/90"
+                              : isNow
+                                ? "bg-white border-2 border-slate-900 shadow-md ring-2 ring-slate-900/10"
+                                : "bg-white border border-gray-100/80 shadow-sm hover:shadow-md"
                         }`}
                       >
                         {/* Side Color Strip */}
@@ -226,12 +241,25 @@ export default function HomePage({ user }: HomePageProps) {
                           >
                             {appt.title || appt.client?.name || 'Untitled'}
                           </h3>
-                          <span
-                            className="self-start sm:self-center shrink-0 text-[10px] uppercase font-bold px-2 py-1 rounded-full text-white tracking-wide"
-                            style={{ backgroundColor: isPast ? "#94a3b8" : serviceColor }}
-                          >
-                            {appt.service?.name || (appt.clientId == null ? 'Custom Event' : 'Appointment')}
-                          </span>
+                          <div className="flex items-center gap-2 self-start sm:self-center shrink-0">
+                            <span
+                              className="text-[10px] uppercase font-bold px-2 py-1 rounded-full text-white tracking-wide"
+                              style={{ backgroundColor: isPast ? "#94a3b8" : serviceColor }}
+                            >
+                              {appt.service?.name || (appt.clientId == null ? 'Custom Event' : 'Appointment')}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openEditModal(appt);
+                              }}
+                              className="p-1.5 rounded-md text-slate-500 hover:text-blue-600 hover:bg-blue-50 border border-transparent hover:border-blue-100 transition-colors opacity-70 group-hover:opacity-100"
+                              aria-label="Edit appointment"
+                            >
+                              <Edit className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </div>
                       </div>
                     );
@@ -267,16 +295,27 @@ export default function HomePage({ user }: HomePageProps) {
           event={selectedEvent}
           onClose={() => setSelectedEvent(null)}
           onDelete={handleDelete}
-          onEdit={() => { /* Handle edit if needed */ }}
+          onEdit={(event) => {
+            setSelectedEvent(null);
+            openEditModal(event);
+          }}
         />
       )}
 
       <AppointmentModal
-        isOpen={isCreateOpen}
-        onClose={() => setIsCreateOpen(false)}
-        selectedDate={new Date()}
-        selectedTime="09:00"
-        onSave={(data) => addAppointmentMutation.mutate(data)}
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setEditingData(null);
+        }}
+        selectedDate={editingData?.start ? new Date(editingData.start) : new Date()}
+        selectedTime={
+          editingData?.start
+            ? format(new Date(editingData.start), 'HH:mm')
+            : '09:00'
+        }
+        onSave={(data) => saveAppointmentMutation.mutate(data)}
+        initialData={editingData}
       />
     </div>
   );

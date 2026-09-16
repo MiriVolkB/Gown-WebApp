@@ -96,9 +96,6 @@ export async function PATCH(
     if (val.WeddingDate !== undefined) {
       data.WeddingDate = val.WeddingDate ? new Date(val.WeddingDate) : null;
     }
-    if (val.dueDate !== undefined) {
-      data.dueDate = val.dueDate ? new Date(val.dueDate) : null;
-    }
 
     if (Object.keys(data).length === 0) {
       return NextResponse.json(

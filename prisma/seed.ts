@@ -7,7 +7,7 @@ const SERVICES = [
   { name: "First Appointment", defaultDurationMin: 30, color: "#3b82f6" },
   { name: "First Fitting", defaultDurationMin: 45, color: "#f59e0b" },
   { name: "Second Fitting", defaultDurationMin: 45, color: "#8b5cf6" },
-  { name: "Pickup", defaultDurationMin: 20, color: "#10b981" },
+  { name: "Pickup", defaultDurationMin: 60, color: "#10b981" },
   { name: "Rental", defaultDurationMin: 30, color: "#ec4899" },
   { name: "Other", defaultDurationMin: 30, color: "#64748b" },
 ] as const
@@ -28,6 +28,7 @@ type GownSeed = {
     SkirtLength: number
     SleeveLength: number
     SleeveWidth: number
+    Shoulder: number
     ShoulderToBust: number
     notes?: string
   }
@@ -38,7 +39,6 @@ type ClientSeed = {
   email?: string
   phone: string
   WeddingDate: Date
-  dueDate: Date
   Recommended?: string
   notes?: string
   paymentPlan: PaymentPlan
@@ -67,7 +67,6 @@ const CLIENTS: ClientSeed[] = [
     email: "sarah.cohen@email.com",
     phone: "052-441-2290",
     WeddingDate: daysFromNow(45),
-    dueDate: daysFromNow(40),
     Recommended: "Instagram",
     notes: "Prefers ivory over pure white. Mother will join second fitting.",
     paymentPlan: "fully_paid",
@@ -90,6 +89,7 @@ const CLIENTS: ClientSeed[] = [
           SkirtLength: 110,
           SleeveLength: 58,
           SleeveWidth: 14,
+          Shoulder: 38,
           ShoulderToBust: 26,
           notes: "Slightly longer train requested",
         },
@@ -111,7 +111,6 @@ const CLIENTS: ClientSeed[] = [
     email: "yael.levi@email.com",
     phone: "054-778-3312",
     WeddingDate: daysFromNow(28),
-    dueDate: daysFromNow(25),
     Recommended: "Friend referral",
     notes: "Rental only — needs soft A-line silhouette.",
     paymentPlan: "owes",
@@ -134,7 +133,6 @@ const CLIENTS: ClientSeed[] = [
     email: "michal.m@email.com",
     phone: "050-912-4455",
     WeddingDate: daysFromNow(70),
-    dueDate: daysFromNow(65),
     Recommended: "Google",
     paymentPlan: "partial",
     paymentMethod: "credit_card",
@@ -156,6 +154,7 @@ const CLIENTS: ClientSeed[] = [
           SkirtLength: 115,
           SleeveLength: 0,
           SleeveWidth: 0,
+          Shoulder: 36,
           ShoulderToBust: 25,
           notes: "Sleeveless sweetheart neckline",
         },
@@ -176,7 +175,6 @@ const CLIENTS: ClientSeed[] = [
     name: "Noa Ben-David",
     phone: "053-220-8871",
     WeddingDate: daysFromNow(12),
-    dueDate: daysFromNow(10),
     Recommended: "Walk-in",
     notes: "Urgent timeline — ceremony in two weeks.",
     paymentPlan: "fully_paid",
@@ -198,7 +196,6 @@ const CLIENTS: ClientSeed[] = [
     email: "tamar.a@email.com",
     phone: "052-334-1190",
     WeddingDate: daysFromNow(90),
-    dueDate: daysFromNow(85),
     Recommended: "TikTok",
     paymentPlan: "none",
     gowns: [
@@ -232,7 +229,6 @@ const CLIENTS: ClientSeed[] = [
     email: "rina.shapiro@email.com",
     phone: "058-661-2044",
     WeddingDate: daysFromNow(55),
-    dueDate: daysFromNow(50),
     Recommended: "Previous client",
     notes: "Returning client — sister rented here last year.",
     paymentPlan: "owes",
@@ -251,6 +247,7 @@ const CLIENTS: ClientSeed[] = [
           SkirtLength: 108,
           SleeveLength: 60,
           SleeveWidth: 16,
+          Shoulder: 40,
           ShoulderToBust: 27,
         },
       },
@@ -266,7 +263,6 @@ const CLIENTS: ClientSeed[] = [
     email: "hila.gold@email.com",
     phone: "054-105-7788",
     WeddingDate: daysFromNow(110),
-    dueDate: daysFromNow(100),
     Recommended: "WhatsApp group",
     paymentPlan: "partial",
     paymentMethod: "bank_transfer",
@@ -290,7 +286,6 @@ const CLIENTS: ClientSeed[] = [
     name: "Dana Katz",
     phone: "050-443-9901",
     WeddingDate: daysFromNow(33),
-    dueDate: daysFromNow(30),
     Recommended: "Instagram",
     notes: "Needs modest sleeves added to rental gown.",
     paymentPlan: "fully_paid",
@@ -320,7 +315,6 @@ const CLIENTS: ClientSeed[] = [
     email: "lior.azulai@email.com",
     phone: "052-887-3300",
     WeddingDate: daysFromNow(20),
-    dueDate: daysFromNow(18),
     Recommended: "Friend referral",
     paymentPlan: "owes",
     paymentMethod: "cash",
@@ -349,7 +343,6 @@ const CLIENTS: ClientSeed[] = [
     email: "eden.peretz@email.com",
     phone: "053-556-2211",
     WeddingDate: daysFromNow(75),
-    dueDate: daysFromNow(70),
     Recommended: "Google",
     notes: "Consultation only for now — deciding between rental and custom.",
     paymentPlan: "none",
@@ -363,7 +356,6 @@ const CLIENTS: ClientSeed[] = [
     email: "shira.ba@email.com",
     phone: "054-990-1144",
     WeddingDate: daysFromNow(140),
-    dueDate: daysFromNow(130),
     Recommended: "Bridal fair",
     paymentPlan: "partial",
     paymentMethod: "bit",
@@ -390,7 +382,6 @@ const CLIENTS: ClientSeed[] = [
     name: "Maya Rosen",
     phone: "050-221-6677",
     WeddingDate: daysFromNow(8),
-    dueDate: daysFromNow(6),
     Recommended: "Walk-in",
     notes: "Last-minute rental — fully settled.",
     paymentPlan: "fully_paid",
@@ -581,7 +572,6 @@ async function main() {
         email: client.email ?? null,
         phone: client.phone,
         WeddingDate: client.WeddingDate,
-        dueDate: client.dueDate,
         Recommended: client.Recommended ?? null,
         notes: client.notes ?? null,
         ownerId: guest.id,

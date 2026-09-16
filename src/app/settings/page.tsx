@@ -118,7 +118,7 @@ export default function SettingsPage() {
                 { name: 'First Appointment', color: '#3b82f6', mins: 30 },
                 { name: 'First Fitting', color: '#f59e0b', mins: 45 },
                 { name: 'Second Fitting', color: '#8b5cf6', mins: 45 },
-                { name: 'Pickup', color: '#10b981', mins: 20 },
+                { name: 'Pickup', color: '#10b981', mins: 60 },
                 { name: 'Rental', color: '#ec4899', mins: 30 },
               ].map((s) => (
                 <li key={s.name} className="px-5 py-4 md:px-6 flex items-center gap-3">

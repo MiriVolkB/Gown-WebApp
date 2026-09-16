@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useDeferredValue } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { ClientListItem } from '../types';
 import { Search, Loader2, Calendar } from 'lucide-react';
 import { calculateFamilyFinances } from '../lib/calculations';
-import { format } from 'date-fns'; // Used for nice formatting, fallbacks included if strings
+import { format } from 'date-fns';
 
 interface ClientsPageProps {
   clients: ClientListItem[];
@@ -25,11 +25,12 @@ export function ClientsPage({
   onClientClick,
   onNewClient,
 }: ClientsPageProps) {
-  // UI State for instant feedback
   const [loadingClientId, setLoadingClientId] = useState<string | null>(null);
-  
-  // React 18 Transition Hook for non-blocking navigation
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
+
+  // Keep the input snappy; defer the list filter + per-card finance math
+  const deferredQuery = useDeferredValue(searchQuery);
+  const isFiltering = deferredQuery !== searchQuery;
 
   if (!clients || !Array.isArray(clients)) {
     return (
@@ -37,18 +38,21 @@ export function ClientsPage({
         <Loader2 className="w-8 h-8 animate-spin mb-4 text-blue-600" />
         <span className="text-sm font-medium uppercase tracking-widest">Loading Database...</span>
       </div>
-    ); 
+    );
   }
 
-  const filteredClients = clients.filter(
-    (client) =>
-      client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      client.phone.includes(searchQuery)
-  );
+  const query = deferredQuery.trim().toLowerCase();
+  const filteredClients = query
+    ? clients.filter(
+        (client) =>
+          client.name.toLowerCase().includes(query) ||
+          client.phone.includes(deferredQuery.trim())
+      )
+    : clients;
 
   const handleClientClick = (clientId: string) => {
-    setLoadingClientId(clientId); 
-    
+    setLoadingClientId(clientId);
+
     startTransition(() => {
       onClientClick(clientId);
     });
@@ -90,17 +94,19 @@ export function ClientsPage({
         </div>
 
         {/* Clients Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+        <div
+          className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 transition-opacity ${
+            isFiltering ? 'opacity-60' : 'opacity-100'
+          }`}
+        >
           {filteredClients.map((client) => {
             const { balance, isFullyPaid } = calculateFamilyFinances(client);
             const gownCount = client.projects?.length || 0;
             const isLoading = loadingClientId === String(client.id);
-            // NEW: If they have 0 gowns, they are just a lead/consultation
             const isLead = gownCount === 0;
 
-            // 🔍 Extracting Next Appointment Date cleanly
-            const upcomingAppointments = client.appointments?.filter(app => new Date(app.start) >= new Date()) || [];
-            const nextAppointment = upcomingAppointments.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())[0];
+            // API already returns only the next upcoming appointment (take: 1)
+            const nextAppointment = client.appointments?.[0];
 
             return (
               <button
@@ -112,7 +118,6 @@ export function ClientsPage({
                   ${loadingClientId !== null && !isLoading ? 'opacity-40 grayscale-[50%] cursor-not-allowed' : ''}
                 `}
               >
-                {/* Instant Loading Overlay */}
                 {isLoading && (
                   <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white/90 backdrop-blur-[2px] animate-in fade-in">
                     <Loader2 className="w-7 h-7 animate-spin text-blue-600 mb-2" />
@@ -120,20 +125,16 @@ export function ClientsPage({
                   </div>
                 )}
 
-                {/* Gown Badge */}
                 <span className="absolute top-3 right-3 text-[10px] uppercase tracking-wider text-gray-300 font-bold group-hover:text-gray-400 transition-colors">
                   {gownCount} {gownCount === 1 ? 'Gown' : 'Gowns'}
                 </span>
 
-                {/* Container holding internal stacked elements (Wedding Date down to Next Appointment) */}
                 <div className="flex flex-col items-center space-y-2 w-full pt-2">
                   
-                  {/* 1️⃣ WEDDING DATE (Top) */}
                   <div className="text-[11px] uppercase tracking-widest text-amber-600 font-bold bg-amber-50 px-2 py-0.5 rounded">
-                    💍 {client.dueDate ? format(new Date(client.dueDate), 'MMM dd, yyyy') : 'No Wedding Date'}
+                    💍 {client.WeddingDate ? format(new Date(client.WeddingDate), 'MMM dd, yyyy') : 'No Wedding Date'}
                   </div>
 
-                  {/* 2️⃣ NAME */}
                   <div
                     className="font-bold text-xl leading-tight tracking-tight mt-1"
                     style={{ color: deepNavy }}
@@ -141,7 +142,6 @@ export function ClientsPage({
                     {client.name}
                   </div>
 
-                  {/* 3️⃣ PAYMENT STATUS */}
                   <div className={`text-xs uppercase tracking-widest font-bold px-3 py-1 rounded-full ${
                     isLead ? 'bg-indigo-50 text-indigo-500' :
                     isFullyPaid ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
@@ -149,7 +149,6 @@ export function ClientsPage({
                     {isLead ? 'Consultation' : isFullyPaid ? 'Fully Paid' : `Owes ${balance} NIS`}
                   </div>
 
-                  {/* 4️⃣ NEXT APPOINTMENT (Bottom) */}
                   <div className="w-full mt-3 pt-3 border-t border-gray-100 flex flex-col items-center text-xs text-gray-500">
                     <span className="text-[10px] uppercase tracking-wider font-semibold text-gray-400 mb-0.5">Next Appointment</span>
                     {nextAppointment ? (
@@ -164,7 +163,6 @@ export function ClientsPage({
 
                 </div>
 
-                {/* Warning Stripe */}
                 {!isFullyPaid && client.projects?.some(p => p.isPickedUp) && (
                   <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-rose-500" title="Picked up but not paid!" />
                 )}
@@ -173,7 +171,6 @@ export function ClientsPage({
           })}
         </div>
 
-        {/* Empty State */}
         {filteredClients.length === 0 && (
           <div className="text-center py-16 bg-white rounded-xl border border-dashed border-gray-200 mt-4">
             <p className="text-gray-400 text-sm italic">No clients found matching "{searchQuery}"</p>

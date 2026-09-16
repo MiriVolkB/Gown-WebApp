@@ -39,7 +39,6 @@ export default function NewClientPage() {
       notes: "",
       Recommended: "",
       WeddingDate: "",
-      dueDate: "",
       projects: [{ memberName: "Main", orderType: "RENTAL", price: 2000 }],
       // NEW: Default downpayment state
       hasDownpayment: false,
@@ -65,7 +64,6 @@ export default function NewClientPage() {
     try {
       const payload = {
         ...data,
-        dueDate: data.dueDate ? new Date(data.dueDate).toISOString() : new Date().toISOString(),
         WeddingDate: data.WeddingDate ? new Date(data.WeddingDate).toISOString() : null,
         // NEW: Send the downpayment amount to the API
         downpaymentAmount: data.hasDownpayment ? data.downpaymentAmount : 0,
@@ -169,29 +167,14 @@ export default function NewClientPage() {
                   )}
                 />
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4">
                     {/* Wedding Date */}
                     <FormField
                     control={form.control}
                     name="WeddingDate"
                     render={({ field }) => (
                         <FormItem>
-                        <FormLabel>Wedding Date</FormLabel>
-                        <FormControl>
-                            <Input type="date" {...field} value={field.value ?? ""}/>
-                        </FormControl>
-                        <FormMessage />
-                        </FormItem>
-                    )}
-                    />
-
-                    {/* Need Gown By */}
-                    <FormField
-                    control={form.control}
-                    name="dueDate"
-                    render={({ field }) => (
-                        <FormItem>
-                        <FormLabel>Need Gown By<span className="text-red-500">*</span></FormLabel>
+                        <FormLabel>Wedding Date<span className="text-red-500">*</span></FormLabel>
                         <FormControl>
                             <Input type="date" {...field} value={field.value ?? ""}/>
                         </FormControl>

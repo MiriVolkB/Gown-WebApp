@@ -1,6 +1,7 @@
-import React from 'react';
-import { X, Trash2, Edit, Calendar as CalIcon, Clock, AlignLeft } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { X, Trash2, Edit, Calendar as CalIcon, Clock, AlignLeft, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
+import { Button } from '@/components/ui/button';
 
 interface AppointmentDetailsProps {
   isOpen: boolean;
@@ -11,7 +12,29 @@ interface AppointmentDetailsProps {
 }
 
 export default function AppointmentDetails({ isOpen, onClose, event, onDelete, onEdit }: AppointmentDetailsProps) {
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setShowDeleteConfirm(false);
+      setIsDeleting(false);
+    }
+  }, [isOpen]);
+
   if (!isOpen || !event) return null;
+
+  const handleConfirmDelete = async () => {
+    if (!onDelete) return;
+    setIsDeleting(true);
+    try {
+      await Promise.resolve(onDelete(event.id));
+      setShowDeleteConfirm(false);
+      onClose();
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   const resource = event.resource || event;
   const dateStr = format(event.start, 'dd/MM/yyyy');
@@ -104,7 +127,7 @@ export default function AppointmentDetails({ isOpen, onClose, event, onDelete, o
         <div className="p-4 md:p-6 bg-gray-50 border-t border-gray-200 flex justify-between items-center gap-3 mt-auto shrink-0 safe-area-pb">
           {onDelete && (
             <button 
-              onClick={() => { onDelete(event.id); onClose(); }}
+              onClick={() => setShowDeleteConfirm(true)}
               className="flex items-center gap-2 px-4 py-2.5 text-red-600 hover:bg-red-50 rounded-lg text-sm font-semibold transition-colors"
             >
               <Trash2 className="w-4 h-4" />
@@ -123,6 +146,42 @@ export default function AppointmentDetails({ isOpen, onClose, event, onDelete, o
           )}
         </div>
       </div>
+
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden">
+            <div className="flex items-center gap-2 px-5 py-4 border-b border-slate-100 bg-slate-50/50 text-rose-600">
+              <AlertTriangle className="h-5 w-5" />
+              <h3 className="font-bold">Delete Appointment</h3>
+            </div>
+
+            <div className="p-6 text-center">
+              <p className="text-slate-600 text-sm leading-relaxed">
+                Are you sure you want to delete this appointment? This action cannot be undone.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3 px-5 py-4 bg-slate-50 border-t border-slate-100">
+              <Button
+                variant="outline"
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={isDeleting}
+                className="flex-1 bg-white"
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleConfirmDelete}
+                disabled={isDeleting}
+                className="flex-1 bg-rose-600 hover:bg-rose-700 text-white"
+              >
+                {isDeleting ? 'Deleting...' : 'OK'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

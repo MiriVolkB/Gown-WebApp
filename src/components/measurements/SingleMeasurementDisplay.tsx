@@ -219,6 +219,7 @@ export function SingleMeasurementDisplay({
         <MeasurementDetailItem label="Bust" value={measurement.Bust} field="Bust" type="number" suffix=" cm" editable={!!onSave} onSave={onSave} />
         <MeasurementDetailItem label="Waist" value={measurement.waist} field="waist" type="number" suffix=" cm" editable={!!onSave} onSave={onSave} />
         <MeasurementDetailItem label="Hips" value={measurement.Hips} field="Hips" type="number" suffix=" cm" editable={!!onSave} onSave={onSave} />
+        <MeasurementDetailItem label="Shoulder" value={measurement.Shoulder} field="Shoulder" type="number" suffix=" cm" editable={!!onSave} onSave={onSave} />
         <MeasurementDetailItem label="Shoulder to Bust" value={measurement.ShoulderToBust} field="ShoulderToBust" type="number" suffix=" cm" editable={!!onSave} onSave={onSave} />
         <MeasurementDetailItem label="Sleeve Length" value={measurement.SleeveLength} field="SleeveLength" type="number" suffix=" cm" editable={!!onSave} onSave={onSave} />
         <MeasurementDetailItem label="Sleeve Width" value={measurement.SleeveWidth} field="SleeveWidth" type="number" suffix=" cm" editable={!!onSave} onSave={onSave} />

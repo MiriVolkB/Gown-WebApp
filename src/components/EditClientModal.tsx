@@ -20,7 +20,6 @@ export function EditClientModal({ client, onClose, onSave }: EditClientModalProp
         name: "",
         phone: "",
         email: "",
-        dueDate: "",
         WeddingDate: "",
         notes: "",
         Recommended: "",
@@ -36,9 +35,6 @@ export function EditClientModal({ client, onClose, onSave }: EditClientModalProp
             name: client.name ?? "",
             phone: client.phone ?? "",
             email: client.email ?? "",
-            dueDate: client.dueDate
-                ? new Date(client.dueDate).toISOString().slice(0, 10)
-                : "",
             WeddingDate: client.WeddingDate
                 ? new Date(client.WeddingDate).toISOString().slice(0, 10)
                 : "",
@@ -61,7 +57,6 @@ export function EditClientModal({ client, onClose, onSave }: EditClientModalProp
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     ...form,
-                    dueDate: form.dueDate ? new Date(form.dueDate).toISOString() : undefined,
                     WeddingDate: form.WeddingDate ? new Date(form.WeddingDate).toISOString() : undefined,
                 }),
             });
@@ -121,10 +116,6 @@ export function EditClientModal({ client, onClose, onSave }: EditClientModalProp
                             <div>
                                 <label className="text-xs font-bold uppercase text-gray-400 block mb-1">Phone</label>
                                 <Input name="phone" value={form.phone} onChange={handleChange} />
-                            </div>
-                            <div>
-                                <label className="text-xs font-bold uppercase text-gray-400 block mb-1">Due Date</label>
-                                <Input type="date" name="dueDate" value={form.dueDate} onChange={handleChange} />
                             </div>
                             <div>
                                 <label className="text-xs font-bold uppercase text-gray-400 block mb-1">Wedding Date</label>

@@ -29,6 +29,7 @@ export function AddMeasurementModal({ projectId, onClose, measurementToEdit }: P
     SkirtLength: "",
     SleeveLength: "",
     SleeveWidth: "",
+    Shoulder: "",
     ShoulderToBust: "",
     notes: "",
   });
@@ -44,6 +45,7 @@ export function AddMeasurementModal({ projectId, onClose, measurementToEdit }: P
       SkirtLength: String(measurementToEdit.SkirtLength ?? ""),
       SleeveLength: String(measurementToEdit.SleeveLength ?? ""),
       SleeveWidth: String(measurementToEdit.SleeveWidth ?? ""),
+      Shoulder: String(measurementToEdit.Shoulder ?? ""),
       ShoulderToBust: String(measurementToEdit.ShoulderToBust ?? ""),
       notes: measurementToEdit.notes ?? "",
     });
@@ -70,6 +72,7 @@ export function AddMeasurementModal({ projectId, onClose, measurementToEdit }: P
       SkirtLength: Number(form.SkirtLength),
       SleeveLength: Number(form.SleeveLength),
       SleeveWidth: Number(form.SleeveWidth),
+      Shoulder: Number(form.Shoulder),
       ShoulderToBust: Number(form.ShoulderToBust),
       notes: form.notes || undefined,
     });
@@ -222,6 +225,19 @@ export function AddMeasurementModal({ projectId, onClose, measurementToEdit }: P
                 className={errors.SleeveWidth ? "border-red-500 focus-visible:ring-red-500" : ""}
               />
               {errors.SleeveWidth && <p className="text-[10px] text-red-500 mt-1">{errors.SleeveWidth}</p>}
+            </div>
+
+            <div>
+              <label className="text-xs font-bold uppercase text-gray-400 block mb-1" htmlFor="Shoulder">Shoulder (cm)</label>
+              <Input
+                id="Shoulder"
+                name="Shoulder"
+                placeholder="0"
+                onChange={handleChange}
+                value={form.Shoulder}
+                className={errors.Shoulder ? "border-red-500 focus-visible:ring-red-500" : ""}
+              />
+              {errors.Shoulder && <p className="text-[10px] text-red-500 mt-1">{errors.Shoulder}</p>}
             </div>
 
             <div>
