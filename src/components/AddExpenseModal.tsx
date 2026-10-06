@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { CheckCircle2 } from 'lucide-react'; // 1. Imported the checkmark icon
 import { BaseModal } from "@/components/BaseModal"; // 2. Imported the wrapper
@@ -26,6 +26,22 @@ export default function AddExpenseModal({ projects, initialProjectId, onClose }:
   });
   const [loading, setLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false); // 3. Added success state
+  const [memberSearch, setMemberSearch] = useState('');
+  const [showMemberList, setShowMemberList] = useState(false);
+
+   const selectedProject = useMemo(
+    () => (projects || []).find((p) => p.id === form.projectId),
+    [projects, form.projectId]
+  );
+
+  const filteredProjects = useMemo(() => {
+    const q = memberSearch.trim().toLowerCase();
+    if (!q) return projects || [];
+    return (projects || []).filter((p) =>
+      (p.memberName || '').toLowerCase().includes(q) ||
+      (p.clientName || '').toLowerCase().includes(q)
+    );
+  }, [projects, memberSearch]);
 
   const handleSave = async () => {
     if (!form.projectId) return alert("Please select a client/gown");
@@ -76,24 +92,46 @@ export default function AddExpenseModal({ projects, initialProjectId, onClose }:
         <>
           <div className="space-y-5">
             {/* CLIENT SELECTION: Always show when projects can be provided */}
-            {!initialProjectId && (
-              <div>
+              {!initialProjectId && (
+              <div className="relative">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Select Client / Gown</label>
-                <select
-                  className="w-full border border-slate-200 rounded-lg p-3 mt-1 bg-slate-50 outline-none focus:ring-2 focus:ring-slate-900/5 transition-all"
-                  value={form.projectId}
-                  onChange={(e) => setForm({ ...form, projectId: Number(e.target.value) })}
+                <input
+                  type="text"
+                  className="w-full border border-slate-200 rounded-lg p-3 mt-1 bg-slate-50 outline-none focus:ring-2 focus:ring-slate-900/5 transition-all text-sm"
+                  placeholder={!projects || projects.length === 0 ? "Loading..." : "Search by name..."}
                   disabled={!projects || projects.length === 0}
-                >
-                  <option value="">
-                    {!projects || projects.length === 0 ? "Loading..." : "Select a member..."}
-                  </option>
-                  {projects && projects.length > 0 && projects.map(p => (
-                    <option key={p.id} value={p.id}>
-                      {p.clientName ? `${p.clientName} - ${p.memberName}` : p.memberName}
-                    </option>
-                  ))}
-                </select>
+                  value={
+                    selectedProject && !showMemberList
+                      ? (selectedProject.memberName
+                          ? (selectedProject.clientName ? `${selectedProject.clientName} - ${selectedProject.memberName}` : selectedProject.memberName)
+                          : (selectedProject.clientName || ''))
+                      : memberSearch
+                  }
+                  onChange={(e) => {
+                    setMemberSearch(e.target.value);
+                    setForm({ ...form, projectId: 0 });
+                    setShowMemberList(true);
+                  }}
+                  onFocus={() => setShowMemberList(true)}
+                  onBlur={() => setTimeout(() => setShowMemberList(false), 150)}
+                />
+                {showMemberList && filteredProjects.length > 0 && (
+                  <div className="absolute z-20 w-full bg-white border border-slate-200 rounded-lg shadow-xl mt-1 max-h-48 overflow-y-auto">
+                    {filteredProjects.map((p) => (
+                      <div
+                        key={p.id}
+                        className="px-4 py-2 hover:bg-slate-50 cursor-pointer text-sm border-b last:border-0"
+                        onMouseDown={() => {
+                          setForm({ ...form, projectId: p.id });
+                          setMemberSearch('');
+                          setShowMemberList(false);
+                        }}
+                      >
+       {p.memberName ? (p.clientName ? `${p.clientName} - ${p.memberName}` : p.memberName) : (p.clientName || '')}
+                      </div>                      
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
