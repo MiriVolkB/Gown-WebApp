@@ -14,7 +14,7 @@ export const ModalProvider = () => {
   const router = useRouter();
 
   useEffect(() => {
-    if (type === "addExpense" && projects.length === 0) {
+    if (type === "addExpense" ) {
       fetch("/api/clients")
         .then(res => res.json())
         .then(clients => {

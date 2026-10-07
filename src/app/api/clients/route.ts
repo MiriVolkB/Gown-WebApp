@@ -99,6 +99,7 @@ export async function GET(req: Request) {
         projects: {
           select: {
             id: true,
+            memberName: true,
             price: true,
             isPickedUp: true,
             expenses: { select: { amount: true } },
