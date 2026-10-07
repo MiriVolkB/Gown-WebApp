@@ -56,7 +56,11 @@ export default function HomePage({ user }: HomePageProps) {
       const res = await fetch('/api/clients');
       if (!res.ok) throw new Error('Failed to fetch clients');
       return res.json();
-    }
+    },
+    // The dashboard doesn't show the clients list, so only load it
+    // when the "Clients List" view is actually opened (saves a slow call on every visit).
+    enabled: currentPage === 'clients',
+    staleTime: 60_000,
   });
 
   const { data: appointments = [], isLoading: loading } = useQuery<any[]>({
@@ -131,7 +135,7 @@ export default function HomePage({ user }: HomePageProps) {
                 <div className="text-sm text-blue-200/60 font-medium uppercase tracking-wider mt-1">
                   {user?.role} ACCOUNT
                 </div>
-                <div className="flex items-center gap-2 text-blue-100/80 text-sm md:text-base mt-1.5 font-light">
+                <div className="flex items-center gap-2 text-blue-100/80 text-sm md:text-base mt-1.5font-light">
                   <Calendar className="w-4 h-4 opacity-70" />
                   {format(new Date(), 'EEEE, MMMM do, yyyy')}
                 </div>
@@ -165,7 +169,7 @@ export default function HomePage({ user }: HomePageProps) {
             <div className="max-w-6xl mx-auto">
 
               {loading ? (
-                <div className="bg-white/80 backdrop-blur rounded-2xl p-8 md:p-12 text-center border border-gray-100">
+                <div className="bg-white/80 backdrop-blur rounded-2xl p-8 md:p-12 text-center borderborder-gray-100">
                   <p className="text-gray-400 animate-pulse text-lg font-light">Loading schedule...</p>
                 </div>
               ) : todaysAppointments.length === 0 ? (
@@ -210,7 +214,7 @@ export default function HomePage({ user }: HomePageProps) {
 
                         {/* Time */}
                         <div
-                          className={`shrink-0 w-[7.5rem] sm:w-44 px-3 sm:px-4 py-3 sm:py-4 border-r flex flex-col items-start justify-center text-xs sm:text-sm md:text-base ${
+                          className={`shrink-0 w-[7.5rem] sm:w-44 px-3 sm:px-4 py-3 sm:py-4 border-rflex flex-col items-start justify-center text-xs sm:text-sm md:text-base ${
                             isPast
                               ? "border-slate-200 text-slate-500 font-medium bg-slate-100"
                               : isNow
