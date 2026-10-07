@@ -5,7 +5,7 @@ import { Calendar, dateFnsLocalizer, View, Views, ToolbarProps, EventProps } fro
 import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop';
 import { format, parse, startOfWeek, getDay, startOfDay, isBefore } from 'date-fns';
 import { enUS } from 'date-fns/locale/en-US';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 
 const locales = { 'en-US': enUS };
 const localizer = dateFnsLocalizer({ format, parse, startOfWeek, getDay, locales });
@@ -20,6 +20,10 @@ const SERVICE_COLORS: Record<string, string> = {
   'Other': '#64748b',
 };
 
+// In the Weddings month view, a day with MORE than this many weddings
+// is shown as one summary pill ("3 weddings") that opens a popup.
+const MAX_WEDDINGS_PER_DAY = 2;
+
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(false);
 
@@ -32,6 +36,21 @@ function useIsMobile() {
   }, []);
 
   return isMobile;
+}
+
+// Plain family name for a wedding event (no emoji, no "'s Wedding")
+function weddingName(event: any): string {
+  return (event?.resource?.name || event?.title || 'Client').toString();
+}
+
+// Number of gowns for a wedding event (null if the server didn't send it)
+function weddingGownCount(event: any): number | null {
+  const n = event?.resource?._count?.projects;
+  return typeof n === 'number' ? n : null;
+}
+
+function gownLabel(n: number): string {
+  return `${n} ${n === 1 ? 'gown' : 'gowns'}`;
 }
 
 const CustomToolbar = ({
@@ -101,6 +120,59 @@ const CustomToolbar = ({
   );
 };
 
+// Default event look (used by Appointments in every view, and by weddings in the week view)
+const DefaultEvent = ({ event }: { event: any }) => {
+  const clientName = event.title || 'Client';
+  const isWedding = event.resource?.type === 'wedding';
+
+  if (isWedding) {
+    return (
+      <div className="w-full h-full min-h-[44px] md:min-h-[70px] bg-[#D4AF37] rounded-md shadow-md flex items-center justify-center p-1 md:p-2 z-50 relative">
+        <span className="font-bold text-[11px] md:text-[14px] text-[#0F172A] text-center leading-tight whitespace-normal">
+          {clientName}
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-full w-full flex flex-col justify-center px-0.5 md:px-1 leading-none select-none overflow-hidden">
+      <div className="font-bold truncate text-center text-[10px] md:text-xs">{clientName}</div>
+    </div>
+  );
+};
+
+// Month view only: compact one-line wedding pills + a summary pill for busy days
+const MonthEvent = ({ event }: EventProps<any>) => {
+  const type = event.resource?.type;
+
+  if (type === 'wedding-group') {
+    const count = event.resource?.weddings?.length ?? 0;
+    return (
+      <div className="w-full h-[18px] md:h-[20px] bg-[#0F172A] rounded px-1.5 flex items-center justify-center overflow-hidden cursor-pointer">
+        <span className="truncate text-[10px] md:text-[12px] font-bold text-[#D4AF37] leading-none">
+          {count} weddings
+        </span>
+      </div>
+    );
+  }
+
+  if (type === 'wedding') {
+    return (
+      <div className="w-full h-[18px] md:h-[20px] bg-[#D4AF37] rounded px-1.5 flex items-center overflow-hidden">
+        <span
+          dir="auto"
+          className="min-w-0 truncate text-start text-[10px] md:text-[12px] font-semibold text-[#0F172A] leading-none"
+        >
+          {weddingName(event)}
+        </span>
+      </div>
+    );
+  }
+
+  return <DefaultEvent event={event} />;
+};
+
 export interface CalendarViewProps {
   events: any[];
   onSlotClick?: (slotInfo: { start: Date; end: Date; resourceId?: string | number }) => void;
@@ -114,6 +186,7 @@ export default function MyCalendar({ events, onSlotClick, onEventClick, onEventU
   const isMobile = useIsMobile();
   const [view, setView] = useState<View>(Views.WEEK);
   const [date, setDate] = useState(new Date());
+  const [groupPopup, setGroupPopup] = useState<{ day: Date; weddings: any[] } | null>(null);
 
   // Weddings don't need a Day view, only Month and Week
   const availableViews = useMemo<View[]>(
@@ -129,10 +202,50 @@ export default function MyCalendar({ events, onSlotClick, onEventClick, onEventU
   // Never give the calendar a view that isn't available (prevents a crash on tab switch)
   const currentView: View = isWeddingView && view === Views.DAY ? Views.WEEK : view;
 
+  // Weddings month view: days with more than MAX_WEDDINGS_PER_DAY weddings become one summary pill
+  const displayEvents = useMemo(() => {
+    if (!isWeddingView || currentView !== Views.MONTH) return events;
+
+    const byDay = new Map<string, any[]>();
+    for (const e of events) {
+      const key = format(new Date(e.start), 'yyyy-MM-dd');
+      byDay.set(key, [...(byDay.get(key) || []), e]);
+    }
+
+    const result: any[] = [];
+    byDay.forEach((dayEvents, key) => {
+      if (dayEvents.length <= MAX_WEDDINGS_PER_DAY) {
+        result.push(...dayEvents);
+        return;
+      }
+      result.push({
+        id: `wedding-group-${key}`,
+        title: `${dayEvents.length} weddings`,
+        start: dayEvents[0].start,
+        end: dayEvents[0].end,
+        allDay: true,
+        className: ['wedding-event-large'],
+        resource: { type: 'wedding-group', weddings: dayEvents },
+      });
+    });
+    return result;
+  }, [events, isWeddingView, currentView]);
+
+  // Close the weddings popup with the Escape key
+  useEffect(() => {
+    if (!groupPopup) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setGroupPopup(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [groupPopup]);
+
   const handleNavigate = useCallback((newDate: Date) => setDate(newDate), []);
 
   const onEventDrop = useCallback(
     ({ event, start, end }: any) => {
+      if (event?.resource?.type === 'wedding-group') return;
       if (onEventUpdate) onEventUpdate({ event, start, end });
     },
     [onEventUpdate]
@@ -140,6 +253,7 @@ export default function MyCalendar({ events, onSlotClick, onEventClick, onEventU
 
   const onEventResize = useCallback(
     ({ event, start, end }: any) => {
+      if (event?.resource?.type === 'wedding-group') return;
       if (onEventUpdate) onEventUpdate({ event, start, end });
     },
     [onEventUpdate]
@@ -161,32 +275,15 @@ export default function MyCalendar({ events, onSlotClick, onEventClick, onEventU
           availableViews={availableViews}
         />
       ),
-      event: ({ event }: EventProps<any>) => {
-        const clientName = event.title || 'Client';
-        const isWedding = event.resource?.type === 'wedding';
-
-        if (isWedding) {
-          return (
-            <div className="w-full h-full min-h-[44px] md:min-h-[70px] bg-[#D4AF37] rounded-md shadow-md flex items-center justify-center p-1 md:p-2 z-50 relative">
-              <span className="font-bold text-[11px] md:text-[14px] text-[#0F172A] text-center leading-tight whitespace-normal">
-                {clientName}
-              </span>
-            </div>
-          );
-        }
-
-        return (
-          <div className="h-full w-full flex flex-col justify-center px-0.5 md:px-1 leading-none select-none overflow-hidden">
-            <div className="font-bold truncate text-center text-[10px] md:text-xs">{clientName}</div>
-          </div>
-        );
-      },
+      event: DefaultEvent,
+      month: { event: MonthEvent },
     }),
     [isMobile, availableViews]
   );
 
   const eventStyleGetter = useCallback((event: any) => {
-    const isWedding = event.resource?.type === 'wedding';
+    const type = event.resource?.type;
+    const isWedding = type === 'wedding' || type === 'wedding-group';
 
     if (isWedding) {
       return {
@@ -317,7 +414,7 @@ export default function MyCalendar({ events, onSlotClick, onEventClick, onEventU
         <div className={`h-full ${needsHorizontalScroll ? 'min-w-[720px] md:min-w-[800px]' : 'w-full'}`}>
           <DnDCalendar
             localizer={localizer}
-            events={events}
+            events={displayEvents}
             view={currentView}
             onView={setView}
             views={availableViews}
@@ -332,13 +429,20 @@ export default function MyCalendar({ events, onSlotClick, onEventClick, onEventU
             timeslots={4}
             onEventDrop={onEventDrop}
             onEventResize={onEventResize}
-            draggableAccessor={() => true}
+            draggableAccessor={(e: any) => e?.resource?.type !== 'wedding-group'}
             resizable
             selectable
             onSelectSlot={(slotInfo: any) => {
               if (onSlotClick) onSlotClick(slotInfo);
             }}
-            onSelectEvent={(event) => {
+            onSelectEvent={(event: any) => {
+              if (event?.resource?.type === 'wedding-group') {
+                setGroupPopup({
+                  day: new Date(event.start),
+                  weddings: event.resource.weddings || [],
+                });
+                return;
+              }
               if (onEventClick) onEventClick(event);
             }}
             components={components}
@@ -351,6 +455,63 @@ export default function MyCalendar({ events, onSlotClick, onEventClick, onEventU
           />
         </div>
       </div>
+
+      {groupPopup && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/30"
+            onClick={() => setGroupPopup(null)}
+          />
+          <div className="relative bg-white rounded-xl shadow-2xl border border-gray-200 w-full max-w-sm max-h-[80dvh] flex flex-col">
+            <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-gray-100">
+              <div>
+                <h3 className="text-base font-bold text-[#0F172A]">
+                  {format(groupPopup.day, 'EEEE, MMMM d')}
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {(() => {
+                    const counts = groupPopup.weddings.map(weddingGownCount);
+                    const known = counts.every((c) => c !== null);
+                    const total = counts.reduce<number>((sum, c) => sum + (c ?? 0), 0);
+                    return known
+                      ? `${groupPopup.weddings.length} weddings · ${gownLabel(total)}`
+                      : `${groupPopup.weddings.length} weddings`;
+                  })()}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setGroupPopup(null)}
+                className="p-1 text-gray-500 hover:bg-gray-100 rounded-full"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="overflow-y-auto p-3 flex flex-col gap-2">
+              {groupPopup.weddings.map((w) => (
+                <button
+                  key={w.id}
+                  type="button"
+                  dir="auto"
+                  onClick={() => {
+                    setGroupPopup(null);
+                    if (onEventClick) onEventClick(w);
+                  }}
+                  className="w-full flex items-center justify-between gap-3 text-start px-4 py-3 rounded-lg bg-[#D4AF37] text-[#0F172A] font-semibold text-sm hover:brightness-95 transition"
+                >
+                  <span className="min-w-0 truncate">{weddingName(w)}</span>
+                  {weddingGownCount(w) !== null && (
+                    <span className="shrink-0 text-xs font-medium opacity-80">
+                      {gownLabel(weddingGownCount(w) as number)}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

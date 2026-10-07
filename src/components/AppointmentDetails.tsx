@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { X, Trash2, Edit, Calendar as CalIcon, Clock, AlignLeft, AlertTriangle } from 'lucide-react';
+import Link from 'next/link';
+import { X, Trash2, Edit, Calendar as CalIcon, Clock, AlignLeft, AlertTriangle, Shirt, ArrowRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 
@@ -37,22 +38,31 @@ export default function AppointmentDetails({ isOpen, onClose, event, onDelete, o
   };
 
   const resource = event.resource || event;
-  const dateStr = format(event.start, 'dd/MM/yyyy');
+
+  // Weddings have a date only (no time), a family name and a gown count
+  const isWedding = resource.type === 'wedding';
+  const gownCount =
+    isWedding && typeof resource._count?.projects === 'number' ? (resource._count.projects as number) : null;
+  const clientProfileHref = isWedding && resource.id != null ? `/clients/${resource.id}` : null;
+
+  const dateStr = isWedding ? format(event.start, 'EEEE, MMMM d, yyyy') : format(event.start, 'dd/MM/yyyy');
   const timeStr = `${format(event.start, 'HH:mm')} – ${format(event.end, 'HH:mm')}`;
 
   const isCustomEvent = resource.clientId == null && Boolean(resource.title || event.title);
-  const displayTitle =
-    resource.title ||
-    event.title ||
-    resource.client?.name ||
-    event.client?.name ||
-    'Untitled';
-  const serviceName =
-    resource.service?.name ||
-    event.service?.name ||
-    (isCustomEvent ? 'Custom Event' : 'Appointment');
+  const displayTitle = isWedding
+    ? resource.name || 'Wedding'
+    : resource.title ||
+      event.title ||
+      resource.client?.name ||
+      event.client?.name ||
+      'Untitled';
+  const serviceName = isWedding
+    ? 'Wedding'
+    : resource.service?.name ||
+      event.service?.name ||
+      (isCustomEvent ? 'Custom Event' : 'Appointment');
   const notes = resource.notes || event.notes || '';
-  const color = resource.service?.color || event.service?.color || '#3b82f6';
+  const color = isWedding ? '#D4AF37' : resource.service?.color || event.service?.color || '#3b82f6';
 
   return (
     <>
@@ -67,7 +77,12 @@ export default function AppointmentDetails({ isOpen, onClose, event, onDelete, o
           <div className="w-10 h-1 rounded-full bg-gray-200" />
         </div>
 
-        <div className="h-24 md:h-32 p-4 md:p-6 flex items-start justify-between text-white shrink-0" style={{ backgroundColor: color }}>
+        <div
+          className={`h-24 md:h-32 p-4 md:p-6 flex items-start justify-between shrink-0 ${
+            isWedding ? 'text-[#0F172A]' : 'text-white'
+          }`}
+          style={{ backgroundColor: color }}
+        >
           <h2 className="text-lg md:text-xl font-bold opacity-95 tracking-tight pr-2">{serviceName}</h2>
           <button onClick={onClose} className="p-2 bg-white/20 hover:bg-white/30 rounded-full transition-colors shrink-0">
             <X className="w-5 h-5" />
@@ -76,12 +91,12 @@ export default function AppointmentDetails({ isOpen, onClose, event, onDelete, o
 
         <div className="flex-1 px-4 md:px-6 -mt-6 md:-mt-8 overflow-y-auto min-h-0">
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 md:p-6 space-y-5 md:space-y-6">
-            
+
             <div>
               <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">
-                {isCustomEvent ? 'Event Title' : 'Client'}
+                {isWedding ? 'Family' : isCustomEvent ? 'Event Title' : 'Client'}
               </label>
-              <h3 className="text-xl md:text-2xl font-bold text-gray-900 mt-1 break-words">{displayTitle}</h3>
+              <h3 dir="auto" className="text-xl md:text-2xl font-bold text-gray-900 mt-1 break-words">{displayTitle}</h3>
             </div>
 
             <hr className="border-gray-100" />
@@ -92,20 +107,36 @@ export default function AppointmentDetails({ isOpen, onClose, event, onDelete, o
                   <CalIcon className="w-5 h-5" />
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-gray-900">Date</p>
+                  <p className="text-sm font-bold text-gray-900">{isWedding ? 'Wedding date' : 'Date'}</p>
                   <p className="text-sm text-gray-600 mt-0.5">{dateStr}</p>
                 </div>
               </div>
 
-              <div className="flex items-start gap-3 md:gap-4">
-                <div className="p-2 md:p-2.5 bg-purple-50 text-purple-600 rounded-lg shrink-0">
-                  <Clock className="w-5 h-5" />
+              {!isWedding && (
+                <div className="flex items-start gap-3 md:gap-4">
+                  <div className="p-2 md:p-2.5 bg-purple-50 text-purple-600 rounded-lg shrink-0">
+                    <Clock className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-gray-900">Time</p>
+                    <p className="text-sm text-gray-600 mt-0.5">{timeStr}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm font-bold text-gray-900">Time</p>
-                  <p className="text-sm text-gray-600 mt-0.5">{timeStr}</p>
+              )}
+
+              {isWedding && gownCount !== null && (
+                <div className="flex items-start gap-3 md:gap-4">
+                  <div className="p-2 md:p-2.5 bg-amber-50 text-amber-600 rounded-lg shrink-0">
+                    <Shirt className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-gray-900">Gowns</p>
+                    <p className="text-sm text-gray-600 mt-0.5">
+                      {gownCount} {gownCount === 1 ? 'gown' : 'gowns'}
+                    </p>
+                  </div>
                 </div>
-              </div>
+              )}
 
               {notes && (
                 <div className="flex items-start gap-3 md:gap-4">
@@ -126,9 +157,9 @@ export default function AppointmentDetails({ isOpen, onClose, event, onDelete, o
 
         <div className="p-4 md:p-6 bg-gray-50 border-t border-gray-200 flex justify-between items-center gap-3 mt-auto shrink-0 safe-area-pb">
           {onDelete && (
-            <button 
+            <button
               onClick={() => setShowDeleteConfirm(true)}
-              className="flex items-center gap-2 px-4 py-2.5 text-red-600 hover:bg-red-50 rounded-lg text-sm font-semibold transition-colors"
+              className="flex items-center gap-2 px-4 py-2.5 text-red-600 hover:bg-red-50 rounded-lgtext-sm font-semibold transition-colors"
             >
               <Trash2 className="w-4 h-4" />
               Delete
@@ -136,13 +167,23 @@ export default function AppointmentDetails({ isOpen, onClose, event, onDelete, o
           )}
 
           {onEdit && (
-            <button 
+            <button
               onClick={() => onEdit(event)}
               className="flex items-center gap-2 px-4 py-2.5 text-blue-600 hover:bg-blue-50 rounded-lg text-sm font-semibold transition-colors ml-auto"
             >
               <Edit className="w-4 h-4" />
               Edit
             </button>
+          )}
+
+          {clientProfileHref && (
+            <Link
+              href={clientProfileHref}
+              className="flex items-center gap-2 px-4 py-2.5 text-[#0F172A] hover:bg-gray-200/60 rounded-lg text-sm font-semibold transition-colors ml-auto"
+            >
+              Open client profile
+              <ArrowRight className="w-4 h-4" />
+            </Link>
           )}
         </div>
       </div>
