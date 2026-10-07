@@ -29,7 +29,7 @@ export default function AddExpenseModal({ projects, initialProjectId, onClose }:
   const [memberSearch, setMemberSearch] = useState('');
   const [showMemberList, setShowMemberList] = useState(false);
 
-   const selectedProject = useMemo(
+  const selectedProject = useMemo(
     () => (projects || []).find((p) => p.id === form.projectId),
     [projects, form.projectId]
   );
@@ -42,6 +42,16 @@ export default function AddExpenseModal({ projects, initialProjectId, onClose }:
       (p.clientName || '').toLowerCase().includes(q)
     );
   }, [projects, memberSearch]);
+
+  // Shows the name once when the gown is for the client themself,
+  // and "Family - Name" when it's a family member with a different name.
+  const projectLabel = (p: Project) => {
+    const gown = (p.memberName || '').trim();
+    const family = (p.clientName || '').trim();
+    if (!gown) return family;
+    if (!family || gown.toLowerCase() === family.toLowerCase()) return gown;
+    return `${family} - ${gown}`;
+  };
 
   const handleSave = async () => {
     if (!form.projectId) return alert("Please select a client/gown");
@@ -92,7 +102,7 @@ export default function AddExpenseModal({ projects, initialProjectId, onClose }:
         <>
           <div className="space-y-5">
             {/* CLIENT SELECTION: Always show when projects can be provided */}
-              {!initialProjectId && (
+            {!initialProjectId && (
               <div className="relative">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Select Client / Gown</label>
                 <input
@@ -100,13 +110,7 @@ export default function AddExpenseModal({ projects, initialProjectId, onClose }:
                   className="w-full border border-slate-200 rounded-lg p-3 mt-1 bg-slate-50 outline-none focus:ring-2 focus:ring-slate-900/5 transition-all text-sm"
                   placeholder={!projects || projects.length === 0 ? "Loading..." : "Search by name..."}
                   disabled={!projects || projects.length === 0}
-                  value={
-                    selectedProject && !showMemberList
-                      ? (selectedProject.memberName
-                          ? (selectedProject.clientName ? `${selectedProject.clientName} - ${selectedProject.memberName}` : selectedProject.memberName)
-                          : (selectedProject.clientName || ''))
-                      : memberSearch
-                  }
+                  value={selectedProject && !showMemberList ? projectLabel(selectedProject) : memberSearch}
                   onChange={(e) => {
                     setMemberSearch(e.target.value);
                     setForm({ ...form, projectId: 0 });
@@ -127,8 +131,8 @@ export default function AddExpenseModal({ projects, initialProjectId, onClose }:
                           setShowMemberList(false);
                         }}
                       >
-       {p.memberName ? (p.clientName ? `${p.clientName} - ${p.memberName}` : p.memberName) : (p.clientName || '')}
-                      </div>                      
+                        {projectLabel(p)}
+                      </div>
                     ))}
                   </div>
                 )}
