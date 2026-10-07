@@ -73,6 +73,8 @@ export async function GET(req: Request) {
           id: true,
           name: true,
           WeddingDate: true,
+          // Number of gowns (projects) for this family — shown on the wedding calendar
+          _count: { select: { projects: true } },
         },
         orderBy: { WeddingDate: "asc" },
       });
