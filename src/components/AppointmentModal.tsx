@@ -1,4 +1,4 @@
-'use client';
+ 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { ChevronDown, CheckCircle2, AlertCircle } from 'lucide-react';
@@ -166,14 +166,25 @@ export default function AppointmentModal({
   const editingId = initialData?.id ?? null;
   const durationMinutes = hoursStringToMinutes(durationHours);
 
+  // Load the clients list only while the modal is open (it is only used for the
+  // name search). It used to load on every page that contains this modal.
   useEffect(() => {
+    if (!isOpen) return;
+
+    let cancelled = false;
     fetch('/api/clients')
       .then((res) => res.json())
       .then((data) => {
-        if (Array.isArray(data)) setClients(data);
+        if (!cancelled && Array.isArray(data)) setClients(data);
       })
       .catch((err) => console.error(err));
 
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
     fetch('/api/services')
       .then((res) => res.json())
       .then((data) => {
@@ -833,7 +844,7 @@ export default function AppointmentModal({
             </label>
             <textarea
               rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none resize-none focus:ring-2 focus:ring-slate-900"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none resize-nonefocus:ring-2 focus:ring-slate-900"
               placeholder="Add details..."
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
