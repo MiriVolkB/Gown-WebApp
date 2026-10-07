@@ -46,7 +46,7 @@ export async function POST(req: Request) {
       username: user.username,
     })
       .setProtectedHeader({ alg: "HS256" })
-      .setExpirationTime("1h")
+      .setExpirationTime("1d")
       .sign(secret)
 
     const response = NextResponse.json({ success: true, role: user.role })
@@ -55,7 +55,7 @@ export async function POST(req: Request) {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       path: "/",
-      maxAge: 60 * 60,
+      maxAge: 60 * 60 * 24,
     })
 
     return response
