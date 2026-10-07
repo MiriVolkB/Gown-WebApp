@@ -290,6 +290,7 @@ export default function CalendarPage() {
           ) : null}
           <CalendarView
             events={displayedEvents}
+            isWeddingView={showWeddingsOnly}
             onSlotClick={handleSlotClick}
             onEventClick={handleEventClick}
             setEvents={showWeddingsOnly ? setWeddingEvents : setAppointments}

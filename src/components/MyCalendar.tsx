@@ -107,14 +107,27 @@ export interface CalendarViewProps {
   onEventClick?: (event: any) => void;
   setEvents?: (events: any[]) => void;
   onEventUpdate?: (args: { event: any; start: Date; end: Date }) => void;
+  isWeddingView?: boolean;
 }
 
-export default function MyCalendar({ events, onSlotClick, onEventClick, onEventUpdate }: CalendarViewProps) {
+export default function MyCalendar({ events, onSlotClick, onEventClick, onEventUpdate, isWeddingView = false }: CalendarViewProps) {
   const isMobile = useIsMobile();
   const [view, setView] = useState<View>(Views.WEEK);
   const [date, setDate] = useState(new Date());
 
-  const availableViews: View[] = [Views.MONTH, Views.WEEK, Views.DAY];
+  // Weddings don't need a Day view, only Month and Week
+  const availableViews = useMemo<View[]>(
+    () => (isWeddingView ? [Views.MONTH, Views.WEEK] : [Views.MONTH, Views.WEEK, Views.DAY]),
+    [isWeddingView]
+  );
+
+  // If someone is on Day view and switches to Weddings, fall back to Week
+  useEffect(() => {
+    if (isWeddingView && view === Views.DAY) setView(Views.WEEK);
+  }, [isWeddingView, view]);
+
+  // Never give the calendar a view that isn't available (prevents a crash on tab switch)
+  const currentView: View = isWeddingView && view === Views.DAY ? Views.WEEK : view;
 
   const handleNavigate = useCallback((newDate: Date) => setDate(newDate), []);
 
@@ -210,7 +223,7 @@ export default function MyCalendar({ events, onSlotClick, onEventClick, onEventU
     return {};
   }, []);
 
-  const needsHorizontalScroll = view === Views.WEEK || (isMobile && view === Views.DAY);
+  const needsHorizontalScroll = currentView === Views.WEEK || (isMobile && currentView === Views.DAY);
 
   return (
     <div className="h-full min-h-0 bg-white flex flex-col font-sans w-full">
@@ -305,7 +318,7 @@ export default function MyCalendar({ events, onSlotClick, onEventClick, onEventU
           <DnDCalendar
             localizer={localizer}
             events={events}
-            view={view}
+            view={currentView}
             onView={setView}
             views={availableViews}
             date={date}
