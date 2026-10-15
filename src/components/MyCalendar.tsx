@@ -3,9 +3,10 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { Calendar, dateFnsLocalizer, View, Views, ToolbarProps, EventProps } from 'react-big-calendar';
 import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop';
-import { format, parse, startOfWeek, getDay, startOfDay, isBefore } from 'date-fns';
+import { format, parse, startOfWeek, getDay, startOfDay, isBefore, differenceInCalendarDays } from 'date-fns';
 import { enUS } from 'date-fns/locale/en-US';
-import { ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X, Phone, Clock } from 'lucide-react';
+import { GownIcon } from '@/components/icons/GownIcon';
 
 const locales = { 'en-US': enUS };
 const localizer = dateFnsLocalizer({ format, parse, startOfWeek, getDay, locales });
@@ -23,6 +24,10 @@ const SERVICE_COLORS: Record<string, string> = {
 // In the Weddings month view, a day with MORE than this many weddings
 // is shown as one summary pill ("3 weddings") that opens a popup.
 const MAX_WEDDINGS_PER_DAY = 2;
+
+// In the Weddings week view each wedding is a card, so there is more room:
+// a day with MORE than this many weddings shows the first ones plus a "+N more" pill.
+const MAX_WEDDING_CARDS_PER_DAY = 4;
 
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(false);
@@ -51,6 +56,31 @@ function weddingGownCount(event: any): number | null {
 
 function gownLabel(n: number): string {
   return `${n} ${n === 1 ? 'gown' : 'gowns'}`;
+}
+
+// Phone number for a wedding event (empty string if the server didn't send one)
+function weddingPhone(event: any): string {
+  const phone = event?.resource?.phone;
+  return typeof phone === 'string' ? phone.trim() : '';
+}
+
+// Make a plain string of digits look like a phone number: 0583221457 -> 058-322-1457
+// (anything that already has spaces, dashes or a "+" is shown exactly as typed)
+function formatPhone(raw: string): string {
+  if (!/^\d+$/.test(raw)) return raw;
+  if (raw.length === 10) return `${raw.slice(0, 3)}-${raw.slice(3, 6)}-${raw.slice(6)}`;
+  if (raw.length === 9) return `${raw.slice(0, 2)}-${raw.slice(2, 5)}-${raw.slice(5)}`;
+  return raw;
+}
+
+// "Today", "Tomorrow", "In 4 days", "Yesterday", "3 days ago"
+function weddingCountdown(start: Date | string): string {
+  const days = differenceInCalendarDays(startOfDay(new Date(start)), startOfDay(new Date()));
+  if (days === 0) return 'Today';
+  if (days === 1) return 'Tomorrow';
+  if (days === -1) return 'Yesterday';
+  if (days > 1) return `In ${days} days`;
+  return `${Math.abs(days)} days ago`;
 }
 
 const CustomToolbar = ({
@@ -173,6 +203,69 @@ const MonthEvent = ({ event }: EventProps<any>) => {
   return <DefaultEvent event={event} />;
 };
 
+// Week view: wedding cards (name, gowns, phone, countdown) + a "+N more" pill for busy days
+const WeekEvent = ({ event }: EventProps<any>) => {
+  const type = event.resource?.type;
+
+  if (type === 'wedding-group') {
+    const extra = event.resource?.extra ?? 0;
+    return (
+      <div className="w-full bg-[#0F172A] rounded-md px-2 py-1.5 flex items-center justify-center cursor-pointer">
+        <span className="text-[12px] font-bold text-[#D4AF37] leading-tight">+{extra} more</span>
+      </div>
+    );
+  }
+
+  if (type === 'wedding') {
+    const gowns = weddingGownCount(event);
+    const phone = weddingPhone(event);
+    const countdown = weddingCountdown(event.start);
+    const isToday = countdown === 'Today';
+    const isPast = isBefore(startOfDay(new Date(event.start)), startOfDay(new Date()));
+    return (
+      <div className="w-full bg-[#D4AF37] rounded-md shadow-sm px-2.5 py-2 flex flex-col gap-1.5 text-start text-[#0F172A] cursor-pointer overflow-hidden">
+        <span dir="auto" className="font-bold text-[14px] leading-tight break-words">
+          {weddingName(event)}
+        </span>
+
+        {(gowns !== null || phone) && (
+          <div className="flex flex-col gap-1 pt-1.5 border-t border-[#0F172A]/20">
+            {gowns !== null && (
+              <div className="flex items-center gap-1.5 text-[11px] font-medium leading-tight">
+                <GownIcon className="w-3.5 h-3.5 shrink-0 opacity-70" />
+                <span>{gownLabel(gowns)}</span>
+              </div>
+            )}
+            {phone && (
+              <div className="flex items-center gap-1.5 text-[11px] font-medium leading-tight min-w-0">
+                <Phone className="w-3.5 h-3.5 shrink-0 opacity-70" />
+                <span dir="ltr" className="truncate tabular-nums">
+                  {formatPhone(phone)}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
+        <span
+          className={`self-start inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold leading-tight ${
+            isToday
+              ? 'bg-[#0F172A] text-[#D4AF37]'
+              : isPast
+                ? 'bg-[#0F172A]/5 text-[#0F172A]/60'
+                : 'bg-[#0F172A]/10 text-[#0F172A]'
+          }`}
+        >
+          <Clock className="w-2.5 h-2.5 shrink-0" />
+          {countdown}
+        </span>
+      </div>
+    );
+  }
+
+  return <DefaultEvent event={event} />;
+};
+
 export interface CalendarViewProps {
   events: any[];
   onSlotClick?: (slotInfo: { start: Date; end: Date; resourceId?: string | number }) => void;
@@ -188,7 +281,7 @@ export default function MyCalendar({ events, onSlotClick, onEventClick, onEventU
   const [date, setDate] = useState(new Date());
   const [groupPopup, setGroupPopup] = useState<{ day: Date; weddings: any[] } | null>(null);
 
-  // Weddings don't need a Day view, only Month and Week
+  // Weddings don't need a Day view, only Month and Week (same order as Appointments)
   const availableViews = useMemo<View[]>(
     () => (isWeddingView ? [Views.MONTH, Views.WEEK] : [Views.MONTH, Views.WEEK, Views.DAY]),
     [isWeddingView]
@@ -202,9 +295,12 @@ export default function MyCalendar({ events, onSlotClick, onEventClick, onEventU
   // Never give the calendar a view that isn't available (prevents a crash on tab switch)
   const currentView: View = isWeddingView && view === Views.DAY ? Views.WEEK : view;
 
-  // Weddings month view: days with more than MAX_WEDDINGS_PER_DAY weddings become one summary pill
+  // Weddings month view: days with more than MAX_WEDDINGS_PER_DAY weddings become one summary pill.
+  // Weddings week view: days with more than MAX_WEDDING_CARDS_PER_DAY show the first cards plus "+N more".
   const displayEvents = useMemo(() => {
-    if (!isWeddingView || currentView !== Views.MONTH) return events;
+    const isMonth = currentView === Views.MONTH;
+    const isWeek = currentView === Views.WEEK;
+    if (!isWeddingView || (!isMonth && !isWeek)) return events;
 
     const byDay = new Map<string, any[]>();
     for (const e of events) {
@@ -214,18 +310,41 @@ export default function MyCalendar({ events, onSlotClick, onEventClick, onEventU
 
     const result: any[] = [];
     byDay.forEach((dayEvents, key) => {
-      if (dayEvents.length <= MAX_WEDDINGS_PER_DAY) {
+      if (isMonth) {
+        if (dayEvents.length <= MAX_WEDDINGS_PER_DAY) {
+          result.push(...dayEvents);
+          return;
+        }
+        result.push({
+          id: `wedding-group-${key}`,
+          title: `${dayEvents.length} weddings`,
+          start: dayEvents[0].start,
+          end: dayEvents[0].end,
+          allDay: true,
+          className: ['wedding-event-large'],
+          resource: { type: 'wedding-group', weddings: dayEvents },
+        });
+        return;
+      }
+
+      // Week view
+      if (dayEvents.length <= MAX_WEDDING_CARDS_PER_DAY) {
         result.push(...dayEvents);
         return;
       }
+      result.push(...dayEvents.slice(0, MAX_WEDDING_CARDS_PER_DAY));
       result.push({
-        id: `wedding-group-${key}`,
-        title: `${dayEvents.length} weddings`,
+        id: `wedding-more-${key}`,
+        title: `+${dayEvents.length - MAX_WEDDING_CARDS_PER_DAY} more`,
         start: dayEvents[0].start,
         end: dayEvents[0].end,
         allDay: true,
         className: ['wedding-event-large'],
-        resource: { type: 'wedding-group', weddings: dayEvents },
+        resource: {
+          type: 'wedding-group',
+          weddings: dayEvents,
+          extra: dayEvents.length - MAX_WEDDING_CARDS_PER_DAY,
+        },
       });
     });
     return result;
@@ -277,6 +396,7 @@ export default function MyCalendar({ events, onSlotClick, onEventClick, onEventU
       ),
       event: DefaultEvent,
       month: { event: MonthEvent },
+      week: { event: WeekEvent },
     }),
     [isMobile, availableViews]
   );
@@ -323,7 +443,7 @@ export default function MyCalendar({ events, onSlotClick, onEventClick, onEventU
   const needsHorizontalScroll = currentView === Views.WEEK || (isMobile && currentView === Views.DAY);
 
   return (
-    <div className="h-full min-h-0 bg-white flex flex-col font-sans w-full">
+    <div className={`h-full min-h-0 bg-white flex flex-col font-sans w-full ${isWeddingView ? 'wedding-mode' : 'appt-mode'}`}>
       <style>{`
         .rbc-calendar {
           height: 100%;
@@ -396,7 +516,25 @@ export default function MyCalendar({ events, onSlotClick, onEventClick, onEventU
         @media (min-width: 768px) {
           .rbc-header { padding: 12px 0 !important; font-size: 0.9rem; }
         }
-        .rbc-allday-cell { display: none !important; }
+        /* Appointments don't use the all-day row, so keep it hidden */
+        .appt-mode .rbc-allday-cell { display: none !important; }
+        /* Weddings week view: weddings are all-day items shown as cards.
+           Show the all-day row, hide the empty hour grid under it. */
+        .wedding-mode .rbc-time-content { display: none !important; }
+        .wedding-mode .rbc-time-header-gutter { display: none !important; }
+        .wedding-mode .rbc-time-header {
+          flex: 1 1 0 !important;
+          min-height: 0 !important;
+          overflow-y: auto;
+        }
+        .wedding-mode .rbc-time-header-content .rbc-allday-cell {
+          flex: 1 1 auto;
+          height: auto !important;
+          min-height: 220px;
+        }
+        .wedding-mode .rbc-time-header-content .rbc-event {
+          margin-bottom: 4px !important;
+        }
         .rbc-timeslot-group { min-height: 60px !important; }
         .rbc-time-view .rbc-today { background-color: #f8fafc !important; }
         .rbc-time-view .rbc-day-slot.rbc-past-day {
@@ -429,8 +567,11 @@ export default function MyCalendar({ events, onSlotClick, onEventClick, onEventU
             timeslots={4}
             onEventDrop={onEventDrop}
             onEventResize={onEventResize}
-            draggableAccessor={(e: any) => e?.resource?.type !== 'wedding-group'}
+            draggableAccessor={(e: any) =>
+              e?.resource?.type !== 'wedding-group' && !(isWeddingView && currentView === Views.WEEK)
+            }
             resizable
+            resizableAccessor={() => !isWeddingView}
             selectable
             onSelectSlot={(slotInfo: any) => {
               if (onSlotClick) onSlotClick(slotInfo);
