@@ -2,6 +2,8 @@
 // Guests are handled before this check: they always get a simulated success.
 export const ALLOWED_ROLES = {
   addPayment: ["OWNER", "SECRETARY"],
+  editPayment: ["OWNER", "SECRETARY"],
+  deletePayment: ["OWNER"],
   addFamilyMember: ["OWNER", "SECRETARY"],
   addExpense: ["OWNER", "SECRETARY"],
   saveMeasurement: ["OWNER", "SECRETARY"],

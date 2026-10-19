@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { ClientProfilePage } from "@/components/ClientProfilePage";
 import { prisma } from "@/lib/prisma";
 import { getUser } from "@/lib/getUser";
+import { isAllowed } from "@/lib/permissions";
 import {
   ClientProfileData,
   AppointmentWithService,
@@ -48,5 +49,14 @@ export default async function ClientProfileRoute({
   const appointments: AppointmentWithService[] = clientData.appointments ?? [];
 
   // ✅ Return JSX properly
-  return <ClientProfilePage client={clientData} appointments={appointments} />;
+  // Guests see the button too: their delete is a simulated success.
+  const canDeletePayment = user.role === "GUEST" || isAllowed(user.role, "deletePayment");
+
+  return (
+    <ClientProfilePage
+      client={clientData}
+      appointments={appointments}
+      canDeletePayment={canDeletePayment}
+    />
+  );
 }

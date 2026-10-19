@@ -1,19 +1,40 @@
 "use client";
-import { Plus } from "lucide-react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
+import { Payment } from "@prisma/client";
+import { Plus, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button"; // Adjust path if needed
 import { FamilyFinancialSummary } from "@/components/client-profile/FamilyFinancialSummary";
 import { FamilyInvoiceBreakdown } from "@/components/FamilyInvoiceBreakdown";
 import { prisma } from "@/lib/prisma";
 import { ClientProfileData } from "./InformationTab";
 import { useModal } from "@/hooks/use-modal-store";
+import { EditPaymentModal } from "./EditPaymentModal";
+import { DeletePaymentDialog } from "./DeletePaymentDialog";
 
 interface OverviewTabProps {
   client: ClientProfileData;
   onAddExpense: () => void;
+  canDeletePayment: boolean;
 }
 
-export function OverviewTab({ client, onAddExpense}:  OverviewTabProps ) {
+export function OverviewTab({ client, onAddExpense, canDeletePayment }:  OverviewTabProps ) {
 const { onOpen } = useModal();
+const router = useRouter();
+const queryClient = useQueryClient();
+const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
+const [deletingPayment, setDeletingPayment] = useState<Payment | null>(null);
+
+// Reload this page and, in the background, the other screens that show payment totals,
+// so they already have the new numbers when they are opened.
+const refreshPayments = () => {
+  setEditingPayment(null);
+  setDeletingPayment(null);
+  router.refresh();
+  queryClient.invalidateQueries({ queryKey: ["clients"], refetchType: "all" });
+  queryClient.invalidateQueries({ queryKey: ["wedding-panel-client"], refetchType: "all" });
+};
     return(
         <div className="space-y-6">
          {/* Top Summary Cards stay as they are for quick glance */}
@@ -76,6 +97,7 @@ const { onOpen } = useModal();
                                 <th className="px-6 py-3">Date</th>
                                 <th className="px-6 py-3">Method</th>
                                 <th className="px-6 py-3 text-right">Amount</th>
+                                <th className="px-6 py-3"><span className="sr-only">Actions</span></th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
@@ -90,7 +112,25 @@ const { onOpen } = useModal();
                                     </span>
                                   </td>
                                   <td className="px-6 py-4 text-sm font-bold text-right text-slate-900">
-                                    {payment.amount.toLocaleString()} NIS
+                                    ₪{payment.amount.toLocaleString()}
+                                  </td>
+                                  <td className="px-4 py-4 text-right whitespace-nowrap">
+                                    <button
+                                      onClick={() => setEditingPayment(payment)}
+                                      aria-label="Edit payment"
+                                      className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-md transition-colors"
+                                    >
+                                      <Pencil className="h-4 w-4" />
+                                    </button>
+                                    {canDeletePayment && (
+                                      <button
+                                        onClick={() => setDeletingPayment(payment)}
+                                        aria-label="Delete payment"
+                                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </button>
+                                    )}
                                   </td>
                                 </tr>
                               ))}
@@ -128,6 +168,21 @@ const { onOpen } = useModal();
                 </div>
               </div>
             </div>
+
+            {editingPayment && (
+              <EditPaymentModal
+                payment={editingPayment}
+                onClose={() => setEditingPayment(null)}
+                onSaved={refreshPayments}
+              />
+            )}
+            {deletingPayment && (
+              <DeletePaymentDialog
+                payment={deletingPayment}
+                onClose={() => setDeletingPayment(null)}
+                onDeleted={refreshPayments}
+              />
+            )}
             </div>
     );
 

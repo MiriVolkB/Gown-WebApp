@@ -34,6 +34,7 @@ export function ClientProfilePage({
   client,
   appointments,
   onBack,
+  canDeletePayment,
 }: ClientProfilePageProps) {
   const router = useRouter();
 
@@ -121,6 +122,7 @@ export function ClientProfilePage({
           <TabsContent value="overview" className="space-y-6">
             <OverviewTab
               client={client}
+              canDeletePayment={canDeletePayment}
               onAddExpense={() => {
                 setSelectedProjectId(null); 
                 setIsExpenseModalOpen(true);

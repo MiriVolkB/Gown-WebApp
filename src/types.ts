@@ -62,6 +62,7 @@ export interface ClientProfilePageProps {
   client: ClientProfileData;
   appointments: ClientProfileData["appointments"];
   onBack?: () => void;
+  canDeletePayment: boolean;
 }
 
 // 4. Exporting standard Prisma types for easy use in modals/forms
