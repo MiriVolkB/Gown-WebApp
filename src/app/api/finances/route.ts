@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getUser } from "@/lib/getUser";
+import { isAllowed } from "@/lib/permissions";
 
 export async function GET(req: Request) {
     const user = await getUser();
     if (!user) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (!isAllowed(user.role, "viewFinances")) {
+        return NextResponse.json({ error: "Not allowed" }, { status: 403 });
     }
 
     const { searchParams } = new URL(req.url);
