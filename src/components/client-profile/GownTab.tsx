@@ -2,9 +2,13 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, AlertTriangle, X, CheckCircle2 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Expense } from "@prisma/client";
+import { Plus, AlertTriangle, X, CheckCircle2, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SingleMeasurementDisplay } from "@/components/measurements/SingleMeasurementDisplay";
+import { EditExpenseModal } from "./EditExpenseModal";
+import { DeleteExpenseDialog } from "./DeleteExpenseDialog";
 
 const deepNavy = '#1E2024';
 
@@ -12,10 +16,24 @@ interface GownTabProps {
     project: any; 
     onAddMeasurement: () => void;
     onAddExpense: () => void;
+    canDeleteExpense: boolean;
 }
 
-export function GownTab({ project, onAddMeasurement, onAddExpense }: GownTabProps) {
+export function GownTab({ project, onAddMeasurement, onAddExpense, canDeleteExpense }: GownTabProps) {
     const router = useRouter();
+    const queryClient = useQueryClient();
+    const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+    const [deletingExpense, setDeletingExpense] = useState<Expense | null>(null);
+
+    // Reload this page and, in the background, the other screens that show the family's totals,
+    // so they already have the new numbers when they are opened.
+    const refreshExpenses = () => {
+        setEditingExpense(null);
+        setDeletingExpense(null);
+        router.refresh();
+        queryClient.invalidateQueries({ queryKey: ["clients"], refetchType: "all" });
+        queryClient.invalidateQueries({ queryKey: ["wedding-panel-client"], refetchType: "all" });
+    };
 
     const [deletingId, setDeletingId] = useState<string | number | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
@@ -161,7 +179,7 @@ export function GownTab({ project, onAddMeasurement, onAddExpense }: GownTabProp
                     <div className="sm:text-right bg-slate-50 sm:bg-transparent p-3 sm:p-0 rounded-lg sm:rounded-none border border-slate-100 sm:border-none">
                         <p className="text-xs text-slate-400 uppercase font-bold tracking-tighter">Total Extras</p>
                         <p className="text-xl font-serif text-slate-900">
-                            {project.expenses?.reduce((sum: number, e: any) => sum + e.amount, 0).toLocaleString()} <span className="text-xs">NIS</span>
+                            <span className="text-xs">₪</span>{project.expenses?.reduce((sum: number, e: any) => sum + e.amount, 0).toLocaleString()}
                         </p>
                     </div>
                 </div>
@@ -174,16 +192,35 @@ export function GownTab({ project, onAddMeasurement, onAddExpense }: GownTabProp
                                     <tr className="text-slate-500 font-bold text-[10px] uppercase tracking-wider">
                                         <th className="px-4 sm:px-8 py-4">Expense Description</th>
                                         <th className="px-4 sm:px-8 py-4 text-right">Amount</th>
+                                        <th className="px-4 py-4"><span className="sr-only">Actions</span></th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
-                                    {project.expenses.map((exp: any) => (
+                                    {project.expenses.map((exp: Expense) => (
                                         <tr key={exp.id} className="hover:bg-white transition-colors">
                                             <td className="px-4 sm:px-8 py-4 font-medium text-slate-700">
                                                 {exp.type}
                                             </td>
                                             <td className="px-4 sm:px-8 py-4 text-right font-serif font-bold text-slate-900">
-                                                {exp.amount.toLocaleString()} NIS
+                                                ₪{exp.amount.toLocaleString()}
+                                            </td>
+                                            <td className="px-4 py-4 text-right whitespace-nowrap">
+                                                <button
+                                                    onClick={() => setEditingExpense(exp)}
+                                                    aria-label="Edit expense"
+                                                    className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-md transition-colors"
+                                                >
+                                                    <Pencil className="h-4 w-4" />
+                                                </button>
+                                                {canDeleteExpense && (
+                                                    <button
+                                                        onClick={() => setDeletingExpense(exp)}
+                                                        aria-label="Delete expense"
+                                                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors"
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </button>
+                                                )}
                                             </td>
                                         </tr>
                                     ))}
@@ -197,6 +234,21 @@ export function GownTab({ project, onAddMeasurement, onAddExpense }: GownTabProp
                     </div>
                 )}
             </section>
+
+            {editingExpense && (
+                <EditExpenseModal
+                    expense={editingExpense}
+                    onClose={() => setEditingExpense(null)}
+                    onSaved={refreshExpenses}
+                />
+            )}
+            {deletingExpense && (
+                <DeleteExpenseDialog
+                    expense={deletingExpense}
+                    onClose={() => setDeletingExpense(null)}
+                    onDeleted={refreshExpenses}
+                />
+            )}
 
             {/* SECTION 4: THE FRIENDLY CANCEL CONFIRMATION MODAL */}
             {deletingId && (

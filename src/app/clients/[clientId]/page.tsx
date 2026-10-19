@@ -51,12 +51,14 @@ export default async function ClientProfileRoute({
   // ✅ Return JSX properly
   // Guests see the button too: their delete is a simulated success.
   const canDeletePayment = user.role === "GUEST" || isAllowed(user.role, "deletePayment");
+  const canDeleteExpense = user.role === "GUEST" || isAllowed(user.role, "deleteExpense");
 
   return (
     <ClientProfilePage
       client={clientData}
       appointments={appointments}
       canDeletePayment={canDeletePayment}
+      canDeleteExpense={canDeleteExpense}
     />
   );
 }
