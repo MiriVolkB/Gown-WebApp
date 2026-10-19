@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { ClientProfilePage } from "@/components/ClientProfilePage";
 import { prisma } from "@/lib/prisma";
+import { getUser } from "@/lib/getUser";
 import {
   ClientProfileData,
   AppointmentWithService,
@@ -18,9 +19,12 @@ export default async function ClientProfileRoute({
     notFound();
   }
 
-  // Directly fetch from DB
-  const clientData = await prisma.client.findUnique({
-    where: { id: clientIdInt },
+  const user = await getUser();
+  if (!user) notFound();
+
+  // Only open clients that belong to the logged-in user
+  const clientData = await prisma.client.findFirst({
+    where: { id: clientIdInt, ownerId: user.id },
     include: {
       projects: {
         include: {
