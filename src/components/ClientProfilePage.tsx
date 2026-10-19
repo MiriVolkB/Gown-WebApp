@@ -35,6 +35,7 @@ export function ClientProfilePage({
   appointments,
   onBack,
   canDeletePayment,
+  canDeleteExpense,
 }: ClientProfilePageProps) {
   const router = useRouter();
 
@@ -136,6 +137,7 @@ export function ClientProfilePage({
               <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6 md:p-8 shadow-sm space-y-10">
                 <GownTab
                   project={project}
+                  canDeleteExpense={canDeleteExpense}
                   onAddMeasurement={() => {
                     setSelectedProjectId(project.id);
                     setIsMeasurementOpen(true);
