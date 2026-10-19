@@ -25,8 +25,8 @@ export const measurementSchema = z.object({
 
 export type MeasurementInput = z.infer<typeof measurementSchema>;
 
-export const updateMeasurementSchema = measurementSchema.extend({
-  id: z.number().int().positive(),
-});
+// Editing: any of the fields may be sent (one for inline edit, all for the form).
+// projectId is left out so a measurement can never be moved to another gown.
+export const updateMeasurementSchema = measurementSchema.omit({ projectId: true }).partial();
 
 export type UpdateMeasurementInput = z.infer<typeof updateMeasurementSchema>;

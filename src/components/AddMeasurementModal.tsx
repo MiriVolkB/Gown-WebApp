@@ -113,8 +113,8 @@ export function AddMeasurementModal({ projectId, onClose, measurementToEdit }: P
         alert("Failed to save measurements.");
         setIsSubmitting(false);
       }
-    } catch (err) {
-      console.error("Save error:", err);
+    } catch {
+      alert("Failed to save measurements.");
       setIsSubmitting(false);
     }
   };
