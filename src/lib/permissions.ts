@@ -6,6 +6,7 @@ export const ALLOWED_ROLES = {
   addExpense: ["OWNER", "SECRETARY"],
   saveMeasurement: ["OWNER", "SECRETARY"],
   deleteMeasurement: ["OWNER", "SECRETARY"],
+  viewFinances: ["OWNER", "GUEST"],
 } satisfies Record<string, string[]>;
 
 export type Action = keyof typeof ALLOWED_ROLES;
