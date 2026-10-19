@@ -26,6 +26,7 @@ const MeasurementDetailItem = ({
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState('');
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
   
   // NEW: Local state for instant "Optimistic UI" updates and success message
   const [localValue, setLocalValue] = useState(value);
@@ -40,6 +41,7 @@ const MeasurementDetailItem = ({
   useEffect(() => {
     if (isEditing) {
       setEditValue(localValue?.toString() || '');
+      setSaveError('');
     }
   }, [isEditing, localValue]);
 
@@ -55,7 +57,7 @@ const MeasurementDetailItem = ({
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 2000);
     } catch (error) {
-      console.error('Failed to save:', error);
+      setSaveError(error instanceof Error ? error.message : 'Could not save. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -108,6 +110,9 @@ const MeasurementDetailItem = ({
               </div>
             )}
           </div>
+          {saveError && (
+            <p role="alert" className="text-sm text-rose-600">{saveError}</p>
+          )}
         </div>
 
         <div className="flex items-center justify-end gap-3 px-5 py-4 bg-slate-50 border-t border-slate-100">
@@ -135,7 +140,7 @@ const MeasurementDetailItem = ({
     </div>
   );
 
-  // Read-Only Layout for Tailor Notes
+  // Read-Only Layout for Notes
   if (variant === 'notes') {
     return (
       <>
@@ -228,7 +233,7 @@ export function SingleMeasurementDisplay({
       </div>
 
       <MeasurementDetailItem 
-        label="Tailor Notes" 
+        label="Notes" 
         value={measurement.notes} 
         field="notes"
         type="text"

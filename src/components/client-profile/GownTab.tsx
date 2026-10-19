@@ -20,48 +20,42 @@ export function GownTab({ project, onAddMeasurement, onAddExpense }: GownTabProp
     const [deletingId, setDeletingId] = useState<string | number | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
     const [showDeleteSuccess, setShowDeleteSuccess] = useState(false);
-    
-    // FIX 1: We explicitly tell the Set to only use strings, so numbers and strings never mismatch
-    const [optimisticallyDeletedIds, setOptimisticallyDeletedIds] = useState<Set<string>>(new Set());
+    const [deleteError, setDeleteError] = useState("");
+    const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set());
 
-    const handleConfirmDelete = () => {
-        if (!deletingId) return;
-        const idToDelete = String(deletingId); // Force it to be a string
-        
-        setIsDeleting(true);
-
-        // 1. INSTANT UI UPDATE: Hide the measurement immediately
-        setOptimisticallyDeletedIds(prev => new Set(prev).add(idToDelete));
-        
-        // 2. Show the success screen
-        setShowDeleteSuccess(true);
-        
-        // FIX 2: Dropped the wait time to 800ms so it feels much snappier!
-        setTimeout(() => {
-            setShowDeleteSuccess(false);
-            setDeletingId(null);
-            setIsDeleting(false);
-        }, 800);
-
-        // 4. Fire the server request in the background
-        fetch(`/api/measurements/${deletingId}`, { method: "DELETE" })
-            .then(() => {
-                router.refresh();
-            })
-            .catch((error) => {
-                console.error("Failed to delete measurement", error);
-                // If it fails, put it back on the screen
-                setOptimisticallyDeletedIds(prev => {
-                    const newSet = new Set(prev);
-                    newSet.delete(idToDelete);
-                    return newSet;
-                });
-            });
+    const closeDeleteDialog = () => {
+        setDeletingId(null);
+        setDeleteError("");
     };
 
-    // FIX 3: Also force the measurement ID to a string when checking if it should be hidden
+    // Waits for the server before saying "Deleted!", so a failed delete is never hidden.
+    const handleConfirmDelete = async () => {
+        if (!deletingId) return;
+        const idToDelete = String(deletingId);
+
+        setIsDeleting(true);
+        setDeleteError("");
+
+        try {
+            const res = await fetch(`/api/measurements/${idToDelete}`, { method: "DELETE" });
+            if (!res.ok) throw new Error();
+
+            setDeletedIds(prev => new Set(prev).add(idToDelete));
+            setShowDeleteSuccess(true);
+            setTimeout(() => {
+                setShowDeleteSuccess(false);
+                setDeletingId(null);
+                router.refresh();
+            }, 800);
+        } catch {
+            setDeleteError("Could not delete. Nothing was removed. Please try again.");
+        } finally {
+            setIsDeleting(false);
+        }
+    };
+
     const visibleMeasurements = project.measurements?.filter(
-        (m: any) => !optimisticallyDeletedIds.has(String(m.id))
+        (m: any) => !deletedIds.has(String(m.id))
     ) || [];
 
     return (
@@ -133,11 +127,18 @@ export function GownTab({ project, onAddMeasurement, onAddExpense }: GownTabProp
                             <SingleMeasurementDisplay
                                 measurement={measurement}
                                 onSave={async (field: string, value: string) => {
-                                    await fetch(`/api/measurements/${measurement.id}`, {
-                                        method: "PUT",
+                                    const res = await fetch(`/api/measurements/${measurement.id}`, {
+                                        method: "PATCH",
                                         headers: { "Content-Type": "application/json" },
                                         body: JSON.stringify({ [field]: field === 'notes' ? value : Number(value) }),
                                     });
+                                    if (!res.ok) {
+                                        throw new Error(
+                                            res.status === 400
+                                                ? "Please enter a number greater than 0."
+                                                : "Could not save. Please try again."
+                                        );
+                                    }
                                     router.refresh();
                                 }}
                             />
@@ -220,7 +221,7 @@ export function GownTab({ project, onAddMeasurement, onAddExpense }: GownTabProp
                                         <h3 className="font-bold">Delete Measurement</h3>
                                     </div>
                                     <button 
-                                        onClick={() => !isDeleting && setDeletingId(null)}
+                                        onClick={() => !isDeleting && closeDeleteDialog()}
                                         disabled={isDeleting}
                                         className="text-slate-400 hover:text-slate-600 hover:bg-slate-200 p-1.5 rounded-full transition-colors disabled:opacity-50"
                                     >
@@ -232,12 +233,15 @@ export function GownTab({ project, onAddMeasurement, onAddExpense }: GownTabProp
                                     <p className="text-slate-600 text-sm leading-relaxed">
                                         Are you sure you want to delete these measurements? This action cannot be undone.
                                     </p>
+                                    {deleteError && (
+                                        <p role="alert" className="text-sm text-rose-600">{deleteError}</p>
+                                    )}
                                 </div>
 
                                 <div className="flex items-center gap-3 px-5 py-4 bg-slate-50 border-t border-slate-100">
                                     <Button 
                                         variant="outline" 
-                                        onClick={() => setDeletingId(null)}
+                                        onClick={closeDeleteDialog}
                                         disabled={isDeleting}
                                         className="flex-1 bg-white"
                                     >
