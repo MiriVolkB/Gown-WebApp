@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { SingleMeasurementDisplay } from "@/components/measurements/SingleMeasurementDisplay";
 import { EditExpenseModal } from "./EditExpenseModal";
 import { DeleteExpenseDialog } from "./DeleteExpenseDialog";
+import { EditGownPriceModal } from "./EditGownPriceModal";
 
 const deepNavy = '#1E2024';
 
@@ -24,12 +25,14 @@ export function GownTab({ project, onAddMeasurement, onAddExpense, canDeleteExpe
     const queryClient = useQueryClient();
     const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
     const [deletingExpense, setDeletingExpense] = useState<Expense | null>(null);
+    const [isEditingPrice, setIsEditingPrice] = useState(false);
 
     // Reload this page and, in the background, the other screens that show the family's totals,
     // so they already have the new numbers when they are opened.
-    const refreshExpenses = () => {
+    const refreshTotals = () => {
         setEditingExpense(null);
         setDeletingExpense(null);
+        setIsEditingPrice(false);
         router.refresh();
         queryClient.invalidateQueries({ queryKey: ["clients"], refetchType: "all" });
         queryClient.invalidateQueries({ queryKey: ["wedding-panel-client"], refetchType: "all" });
@@ -89,6 +92,18 @@ export function GownTab({ project, onAddMeasurement, onAddExpense, canDeleteExpe
                     <p className="text-xs text-slate-400 font-medium uppercase tracking-widest">
                         Type: {project.orderType === 'RENTAL' ? 'Rental' : 'Custom Design'}
                     </p>
+                    <div className="flex items-center gap-1 pt-1">
+                        <p className="text-sm text-slate-600">
+                            Gown Price: <span className="font-serif font-bold text-slate-900">₪{project.price.toLocaleString()}</span>
+                        </p>
+                        <button
+                            onClick={() => setIsEditingPrice(true)}
+                            aria-label="Edit gown price"
+                            className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-md transition-colors"
+                        >
+                            <Pencil className="h-4 w-4" />
+                        </button>
+                    </div>
                 </div>
 
                 <div className="flex flex-wrap gap-3 w-full sm:w-auto">
@@ -239,14 +254,21 @@ export function GownTab({ project, onAddMeasurement, onAddExpense, canDeleteExpe
                 <EditExpenseModal
                     expense={editingExpense}
                     onClose={() => setEditingExpense(null)}
-                    onSaved={refreshExpenses}
+                    onSaved={refreshTotals}
+                />
+            )}
+            {isEditingPrice && (
+                <EditGownPriceModal
+                    project={project}
+                    onClose={() => setIsEditingPrice(false)}
+                    onSaved={refreshTotals}
                 />
             )}
             {deletingExpense && (
                 <DeleteExpenseDialog
                     expense={deletingExpense}
                     onClose={() => setDeletingExpense(null)}
-                    onDeleted={refreshExpenses}
+                    onDeleted={refreshTotals}
                 />
             )}
 
