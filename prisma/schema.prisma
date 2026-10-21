@@ -125,3 +125,11 @@ model User {
   clients      Client[]
   appointments Appointment[]
 }
+
+// Failed login tracking, keyed by "<lowercased username>|<ip>"
+model LoginAttempt {
+  key         String    @id
+  failedCount Int       @default(0)
+  lockedUntil DateTime?
+  updatedAt   DateTime  @updatedAt
+}
