@@ -8,6 +8,7 @@ export const ALLOWED_ROLES = {
   addExpense: ["OWNER", "SECRETARY"],
   editExpense: ["OWNER", "SECRETARY"],
   deleteExpense: ["OWNER"],
+  editGownPrice: ["OWNER", "SECRETARY"],
   saveMeasurement: ["OWNER", "SECRETARY"],
   deleteMeasurement: ["OWNER", "SECRETARY"],
   viewFinances: ["OWNER", "GUEST"],
