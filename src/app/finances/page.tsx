@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useState } from 'react';
 import { calculateGlobalFinances } from "@/lib/finances";
+import { calculateFamilyFinances } from "@/lib/calculations";
 
 const deepNavy = "#1E2024";
 const months = [
@@ -59,38 +60,15 @@ export default function FinancesPage() {
 
 
 
-    // 3. THE FIX: Monthly Pickup Balance
-    // This shows how much money is still missing for families who have a pickup THIS month
-    const balanceDueForPickupsThisMonth = Array.from(
-        data.projects?.reduce((map: Map<number, any>, p: any) => {
-            // FILTER: Only look at projects where the CLIENT'S WeddingDate is this month
-            const d = p.client?.WeddingDate ? new Date(p.client.WeddingDate) : null;
-            const isThisMonth = d && (selectedMonth === "all" || (d.getMonth() + 1) === selectedMonth);
+    // --- 3. BALANCE DUE FOR PICKUPS (families whose wedding is in the selected month and year) ---
+    // The card and the breakdown table use the same rows, so the card always equals the table total.
+    const balanceRows = computeBalances(data, selectedMonth, selectedYear);
 
-            if (!isThisMonth) return map;
-
-            const cid = p.clientId;
-            if (!map.has(cid)) {
-                map.set(cid, {
-                    bill: 0,
-                    paid: p.client?.payments?.reduce((s: number, pay: any) => s + (pay.amount || 0), 0) || 0
-                });
-            }
-
-            const pTotal = (p.price || 0) + (p.expenses?.reduce((s: number, e: any) => s + (e.amount || 0), 0) || 0);
-            map.get(cid).bill += pTotal;
-            return map;
-        }, new Map()).values() || []
-    ).reduce((sum: number, clientData: any) => {
-        const bal = clientData.bill - clientData.paid;
-        return sum + (bal > 0 ? bal : 0);
-    }, 0);
-
-    // helper amounts for toggles (now that balanceDueForPickupsThisMonth exists)
+    // helper amounts for toggles
     const revenueAmt = periodStats.totalIncome || 0;
     const profitAmt = periodStats.netProfit || 0;
     const expensesAmt = periodStats.totalInternalExpenses || 0;
-    const balancesAmt = balanceDueForPickupsThisMonth || 0;
+    const balancesAmt = balanceRows.reduce((sum, r) => sum + r.amount, 0);
     // --- 4. DYNAMIC TITLE ---
     const reportTitle = selectedYear === "all"
         ? "Lifetime Financial Summary"
@@ -233,11 +211,7 @@ export default function FinancesPage() {
                 <div className="mt-6 bg-white border border-orange-200 rounded-2xl p-6 shadow-sm">
                     <h4 className="font-semibold mb-4 text-orange-700">Balances breakdown — {reportTitle}</h4>
                     <BreakdownTable
-                        rows={computeBalances(
-                            data,
-                            selectedMonth === 'all' ? 'all' : Number(selectedMonth),
-                            selectedYear === 'all' ? 'all' : Number(selectedYear)
-                        )}
+                        rows={balanceRows}
                         copiedItems={copiedItems}
                         onCopy={(text,id)=>copyText(text,id,setCopiedItems)}
                     />
@@ -420,13 +394,14 @@ function computeBreakdown(
   return rows.filter(r => (r.amount || 0) > 0);
 }
 
-// compute balance breakdown for period: only includes clients whose WeddingDate falls in the selected month/year
+// Balance due per family whose WeddingDate falls in the selected month/year ("all" = no filter for that part).
+// Gowns are grouped by family first, so payments are counted once per family, not once per gown.
 function computeBalances(
   data: any,
   month: number | "all",
   year: number | "all"
 ) {
-  const map = new Map<number, { id: string; name: string; phone: string; email: string; WeddingDate: string | null; amount: number }>();
+  const families = new Map<number, { client: any; projects: any[] }>();
   (data.projects || []).forEach((p: any) => {
     const d = p.client?.WeddingDate ? new Date(p.client.WeddingDate) : null;
     if (!d) return;
@@ -434,24 +409,21 @@ function computeBalances(
     const matchesYear = year === "all" || d.getFullYear() === year;
     if (!matchesMonth || !matchesYear) return;
 
-    const cid = p.clientId;
-    if (!map.has(cid)) {
-      map.set(cid, {
-        id: String(cid),
-        name: p.client?.name || 'Unknown',
-        phone: p.client?.phone || '',
-        email: p.client?.email || '',
-        WeddingDate: p.client?.WeddingDate,
-        amount: 0
-      });
-    }
-    const entry = map.get(cid)!;
-    const pTotal = (p.price || 0) + (p.expenses?.reduce((s: number, e: any) => s + (e.amount || 0), 0) || 0);
-    const paid = p.client?.payments?.reduce((s: number, pay: any) => s + (pay.amount || 0), 0) || 0;
-    entry.amount += pTotal - paid;
+    const family = families.get(p.clientId);
+    if (family) family.projects.push(p);
+    else families.set(p.clientId, { client: p.client, projects: [p] });
   });
 
-  const rows = Array.from(map.values()).filter(r => r.amount > 0);
+  const rows = Array.from(families.entries())
+    .map(([cid, { client, projects }]) => ({
+      id: String(cid),
+      name: client.name || 'Unknown',
+      phone: client.phone || '',
+      email: client.email || '',
+      WeddingDate: client.WeddingDate as string | null,
+      amount: calculateFamilyFinances({ projects, payments: client.payments }).balance
+    }))
+    .filter(r => r.amount > 0);
   rows.sort((a, b) => (b.amount || 0) - (a.amount || 0));
   return rows;
 }
