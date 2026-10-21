@@ -158,6 +158,8 @@ export default function AddExpenseModal({ projects, initialProjectId, onClose }:
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Amount (₪)</label>
               <input
                 type="number"
+                min={0}
+                step={100}
                 className="w-full border-slate-200 rounded-lg p-3 mt-1 bg-slate-50 outline-none focus:ring-2 focus:ring-slate-900/5"
                 placeholder="0.00"
                 value={form.amount}

@@ -83,7 +83,7 @@ export function EditPaymentModal({
       <div className="grid grid-cols-2 gap-4">
         <div className="col-span-2">
           <label className="text-xs font-bold uppercase text-gray-400 block mb-1">Amount (₪)</label>
-          <Input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} />
+          <Input type="number" min={0} step={100} value={amount} onChange={(e) => setAmount(e.target.value)} />
         </div>
         <div>
           <label className="text-xs font-bold uppercase text-gray-400 block mb-1">Method</label>

@@ -107,7 +107,7 @@ export function AddClientModal({ onClose }: { onClose: () => void }) {
         </div>
       ) : (
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <form onSubmit={form.handleSubmit(onSubmit)} noValidate className="space-y-6">
 
             {/* Client Basic Info */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -224,7 +224,7 @@ export function AddClientModal({ onClose }: { onClose: () => void }) {
                       <FormItem>
                         <FormLabel>Price (₪)</FormLabel>
                         <FormControl>
-                          <Input type="number" {...field} onChange={e => field.onChange(Number(e.target.value))} />
+                          <Input type="number" min={0} step={100} {...field} onChange={e => field.onChange(Number(e.target.value))} />
                         </FormControl>
                       </FormItem>
                     )} />
@@ -258,6 +258,8 @@ export function AddClientModal({ onClose }: { onClose: () => void }) {
                     <FormControl>
                       <Input 
                         type="number" 
+                        min={0}
+                        step={100}
                         className="w-28 h-9" 
                         {...field} 
                         onChange={(e) => field.onChange(Number(e.target.value))} 
