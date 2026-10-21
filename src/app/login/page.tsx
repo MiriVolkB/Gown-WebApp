@@ -28,6 +28,17 @@ export default function LoginPage() {
     return true
   }
 
+  const showLoginError = async (res: Response) => {
+    if (res.status === 429) {
+      const data = await res.json().catch(() => ({}))
+      alert(data.error || "Too many failed attempts. Please try again later.")
+    } else if (res.status === 401) {
+      alert("Invalid username or password")
+    } else {
+      alert("Something went wrong. Please try again.")
+    }
+  }
+
   const handleLogin = async () => {
     setLoading(true)
 
@@ -43,7 +54,7 @@ export default function LoginPage() {
       const ok = await finishLogin(res)
       if (!ok) {
         setLoading(false)
-        alert("Invalid username or password")
+        await showLoginError(res)
       }
     } catch {
       setLoading(false)
@@ -66,7 +77,7 @@ export default function LoginPage() {
       const ok = await finishLogin(res)
       if (!ok) {
         setLoading(false)
-        alert("Guest login failed. Check backend configuration.")
+        await showLoginError(res)
       }
     } catch {
       setLoading(false)
