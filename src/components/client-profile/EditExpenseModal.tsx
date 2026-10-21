@@ -79,7 +79,7 @@ export function EditExpenseModal({
         </div>
         <div>
           <label className="text-xs font-bold uppercase text-gray-400 block mb-1">Amount (₪)</label>
-          <Input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} />
+          <Input type="number" min={0} step={100} value={amount} onChange={(e) => setAmount(e.target.value)} />
         </div>
       </div>
 

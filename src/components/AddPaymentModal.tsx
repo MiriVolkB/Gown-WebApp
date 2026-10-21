@@ -158,6 +158,8 @@ export function AddPaymentModal({
                   <label className="text-xs font-bold uppercase text-gray-400 block mb-1">Amount (₪)</label>
                   <Input 
                     type="number" 
+                    min={0}
+                    step={100}
                     placeholder="0.00" 
                     value={form.amount} 
                     onChange={(e) => setForm({...form, amount: e.target.value})} 

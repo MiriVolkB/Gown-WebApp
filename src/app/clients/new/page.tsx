@@ -109,7 +109,7 @@ export default function NewClientPage() {
             </div>
           ) : (
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <form onSubmit={form.handleSubmit(onSubmit)} noValidate className="space-y-6">
                 
                 {/* Name */}
                 <FormField
@@ -272,6 +272,8 @@ export default function NewClientPage() {
                               <FormControl>
                                 <Input
                                   type="number"
+                                  min={0}
+                                  step={100}
                                   {...field}
                                   onChange={(e) => field.onChange(Number(e.target.value))}
                                 />
@@ -310,6 +312,8 @@ export default function NewClientPage() {
                         <FormControl>
                           <Input 
                             type="number" 
+                            min={0}
+                            step={100}
                             className="w-28 h-9" 
                             {...field} 
                             onChange={(e) => field.onChange(Number(e.target.value))} 

@@ -113,6 +113,8 @@ export function AddMemberModal({
               </label>
               <Input
                 type="number"
+                min={0}
+                step={100}
                 placeholder="0.00"
                 value={form.price}
                 onChange={(e) => setForm({ ...form, price: e.target.value })}
