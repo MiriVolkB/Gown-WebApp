@@ -18,6 +18,7 @@ import {
 import { GownIcon } from '@/components/icons/GownIcon';
 import { format, differenceInCalendarDays, startOfDay } from 'date-fns';
 import { Button } from '@/components/ui/button';
+import { calculateFamilyFinances } from '@/lib/calculations';
 
 interface AppointmentDetailsProps {
   isOpen: boolean;
@@ -146,11 +147,10 @@ export default function AppointmentDetails({ isOpen, onClose, event, onDelete, o
 
   const projects: any[] = Array.isArray(family?.projects) ? family.projects : [];
   const payments: any[] = Array.isArray(family?.payments) ? family.payments : [];
-  const totalPrice = projects.reduce((sum, p) => sum + (Number(p.price) || 0), 0);
-  const totalPaid = payments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-  const balance = totalPrice - totalPaid;
+  // Same rule as the client profile: gown prices + gown expenses - payments
+  const { totalBill, totalPaid, balance } = calculateFamilyFinances({ projects, payments });
   const showMoney = projects.length > 0 || payments.length > 0;
-  const paidPct = totalPrice > 0 ? Math.min(100, Math.round((totalPaid / totalPrice) * 100)) : 0;
+  const paidPct = totalBill > 0 ? Math.min(100, Math.round((totalPaid / totalBill) * 100)) : 0;
 
   const now = new Date();
   const nextAppointment = (Array.isArray(family?.appointments) ? family.appointments : [])
@@ -317,7 +317,7 @@ export default function AppointmentDetails({ isOpen, onClose, event, onDelete, o
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2">
                       <p className="text-sm text-gray-700 tabular-nums">
-                        <span className="font-bold text-gray-900">{shekel(totalPaid)}</span> of {shekel(totalPrice)} paid
+                        <span className="font-bold text-gray-900">{shekel(totalPaid)}</span> of {shekel(totalBill)} paid
                       </p>
                       <span
                         className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-bold tabular-nums ${
