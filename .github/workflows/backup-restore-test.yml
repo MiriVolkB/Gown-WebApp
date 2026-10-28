@@ -1,0 +1,121 @@
+# Run by hand to prove the latest backup can be restored.
+# Downloads the newest backup, unlocks it, and restores it into a throwaway
+# Postgres database that exists only inside this job and is deleted when it ends.
+# Prints only table names and row counts, never any rows.
+name: Backup restore test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: backup-restore-test
+  cancel-in-progress: false
+
+jobs:
+  restore-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      throwaway-db:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: throwaway
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+      GH_TOKEN: ${{ github.token }}
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: throwaway
+      PGDATABASE: postgres
+    steps:
+      - name: Check the secret is set
+        run: |
+          if [ -z "$BACKUP_PASSPHRASE" ]; then
+            echo "::error::The secret BACKUP_PASSPHRASE must be set in Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+
+      - name: Install the Postgres 17 tools
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list > /dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-17 > /dev/null
+
+      - name: Download the newest backup
+        run: |
+          set -euo pipefail
+          latest=$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?per_page=100" \
+            --jq '[.artifacts[] | select(.expired | not) | select(.name | startswith("db-backup-"))] | sort_by(.created_at) | last | "\(.name) \(.workflow_run.id)"')
+          if [ -z "$latest" ] || [ "$latest" = "null null" ]; then
+            echo "::error::No backup found. Run the 'Nightly database backup' workflow first."
+            exit 1
+          fi
+          read -r name run_id <<< "$latest"
+          echo "Testing backup: $name"
+          gh run download "$run_id" --repo "$GITHUB_REPOSITORY" --name "$name" --dir backup
+
+      - name: Unlock the backup
+        run: |
+          set -euo pipefail
+          umask 077
+          gpg --batch --yes --quiet --pinentry-mode loopback --passphrase-fd 3 \
+            --decrypt --output backup/db.dump backup/db.dump.gpg 3<<< "$BACKUP_PASSPHRASE"
+
+      - name: Restore into the throwaway database
+        run: |
+          set -euo pipefail
+          # Supabase roles, in case the backup mentions them.
+          for role in anon authenticated service_role; do
+            psql -q -v ON_ERROR_STOP=1 -c "CREATE ROLE $role NOLOGIN" > /dev/null
+          done
+
+          # Errors are shown with anything in quotes or brackets hidden, so no customer data reaches the log.
+          redact() { sed -E 's/"[^"]*"/"..."/g; s/'"'"'[^'"'"']*'"'"'/'"'"'...'"'"'/g; s/\([^)]*\)/(...)/g'; }
+
+          if ! /usr/lib/postgresql/17/bin/pg_restore --dbname=postgres \
+              --clean --if-exists --no-owner --no-privileges --exit-on-error \
+              backup/db.dump 2> backup/restore.err; then
+            echo "::error::The restore failed. Details (data hidden):"
+            grep -E "^pg_restore: error:" backup/restore.err | head -5 | redact
+            exit 1
+          fi
+          rm backup/restore.err
+
+      - name: Show table names and row counts
+        run: |
+          set -euo pipefail
+          counts=$(psql -At -F ' | ' -v ON_ERROR_STOP=1 -c "
+            SELECT table_name,
+                   (xpath('/row/c/text()',
+                          query_to_xml(format('SELECT count(*) AS c FROM public.%I', table_name), false, true, '')))[1]::text
+            FROM information_schema.tables
+            WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
+            ORDER BY table_name")
+
+          if [ -z "$counts" ]; then
+            echo "::error::The backup restored, but it has no tables."
+            exit 1
+          fi
+
+          echo "$counts"
+          {
+            echo "## Restore test passed"
+            echo
+            echo "| Table | Rows |"
+            echo "| --- | --- |"
+            echo "$counts" | sed -E 's/^(.*) \| (.*)$/| \1 | \2 |/'
+          } >> "$GITHUB_STEP_SUMMARY"
