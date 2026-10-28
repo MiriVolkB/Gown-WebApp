@@ -1,4 +1,4 @@
- 'use client';
+'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { ChevronDown, CheckCircle2, AlertCircle } from 'lucide-react';
@@ -93,21 +93,92 @@ function formatSlotLabel(time: string) {
   return m === 0 ? `${hour12} ${period}` : `${hour12}:${String(m).padStart(2, '0')}`;
 }
 
-/** Snap HH:mm to nearest available grid slot */
-function snapToSlot(timeStr: string): string {
+function timeToMinutes(timeStr: string): number | null {
   const [h, m] = timeStr.split(':').map(Number);
-  if (Number.isNaN(h) || Number.isNaN(m)) return '';
-  const total = h * 60 + m;
-  let best = DAY_SLOTS[0];
-  let bestDiff = Math.abs(best.minutesFromMidnight - total);
-  for (const slot of DAY_SLOTS) {
-    const diff = Math.abs(slot.minutesFromMidnight - total);
-    if (diff < bestDiff) {
-      best = slot;
-      bestDiff = diff;
-    }
+  if (!Number.isInteger(h) || !Number.isInteger(m)) return null;
+  if (h < 0 || h > 23 || m < 0 || m > 59) return null;
+  return h * 60 + m;
+}
+
+function minutesToHHMM(total: number): string {
+  const normalized = ((Math.round(total) % 1440) + 1440) % 1440;
+  const h = Math.floor(normalized / 60);
+  const m = normalized % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
+/** 12-hour label with minutes, e.g. 10:00 AM */
+function formatTypedTime(timeStr: string): string {
+  const mins = timeToMinutes(timeStr);
+  if (mins == null) return timeStr;
+  return minutesToClockLabel(mins);
+}
+
+function minutesToClockLabel(total: number): string {
+  const hhmm = minutesToHHMM(total);
+  const [h, m] = hhmm.split(':').map(Number);
+  const period = h >= 12 ? 'PM' : 'AM';
+  const hour12 = h % 12 || 12;
+  return `${hour12}:${String(m).padStart(2, '0')} ${period}`;
+}
+
+/**
+ * Parse a typed time. Accepts "10:00 AM", "10:00am", "22:15", "10:00".
+ * Bare hours 1–7 are read as afternoon (2:30 → 2:30 PM) so they land in the shop day.
+ * While typing, pass allowBareHour=false so "10" is not committed before ":00".
+ */
+function parseFlexibleTime(raw: string, allowBareHour = false): string | null {
+  const s = raw.trim().toLowerCase().replace(/\./g, '').replace(/\s+/g, ' ');
+  if (!s) return null;
+
+  const match = s.match(/^(\d{1,2})(?::(\d{2}))?(?:\s*(am|pm))?$/);
+  if (!match) return null;
+
+  const minuteStr = match[2];
+  const meridiem = match[3] as 'am' | 'pm' | undefined;
+  if (!allowBareHour && !meridiem && minuteStr == null) return null;
+
+  let hour = Number(match[1]);
+  const minute = minuteStr != null ? Number(minuteStr) : 0;
+  if (!Number.isInteger(hour) || !Number.isInteger(minute)) return null;
+  if (minute > 59 || hour < 0 || hour > 23) return null;
+
+  if (meridiem) {
+    if (hour < 1 || hour > 12) return null;
+    hour = meridiem === 'am' ? (hour === 12 ? 0 : hour) : hour === 12 ? 12 : hour + 12;
+  } else if (hour >= 1 && hour <= 7) {
+    hour += 12;
   }
-  return best.time;
+
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+}
+
+type SlotCoverage = { left: number; width: number; full: boolean };
+
+/** How much of a grid slot is covered by [rangeStart, rangeEnd). Width is a percent. */
+function coverageInSlot(
+  slotStart: number,
+  slotEnd: number,
+  rangeStart: number,
+  rangeEnd: number
+): SlotCoverage | null {
+  const start = Math.max(slotStart, rangeStart);
+  const end = Math.min(slotEnd, rangeEnd);
+  if (end <= start) return null;
+  const span = slotEnd - slotStart;
+  const width = ((end - start) / span) * 100;
+  const left = ((start - slotStart) / span) * 100;
+  return { left, width, full: width >= 99.5 };
+}
+
+/** True when an appointment can start on this slot's own time for the chosen duration. */
+function slotStartIsOpen(
+  slotStart: number,
+  duration: number,
+  busy: { startMin: number; endMin: number }[]
+): boolean {
+  const end = slotStart + duration;
+  return !busy.some((block) => rangesOverlap(slotStart, end, block.startMin, block.endMin));
 }
 
 interface AppointmentModalProps {
@@ -144,7 +215,9 @@ export default function AppointmentModal({
   const [serviceName, setServiceName] = useState(FALLBACK_SERVICES[0]);
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
+  const [timeDraft, setTimeDraft] = useState('');
   const [durationHours, setDurationHours] = useState('0.5');
+  const [durationMinutesDraft, setDurationMinutesDraft] = useState('30');
   const [notes, setNotes] = useState('');
 
   const [clients, setClients] = useState<any[]>([]);
@@ -165,6 +238,13 @@ export default function AppointmentModal({
 
   const editingId = initialData?.id ?? null;
   const durationMinutes = hoursStringToMinutes(durationHours);
+
+  // Keep the minutes box aligned with the hours box, including quick picks and service defaults.
+  useEffect(() => {
+    const hours = parseFloat(durationHours);
+    if (Number.isNaN(hours) || hours <= 0) return;
+    setDurationMinutesDraft(String(hoursStringToMinutes(durationHours)));
+  }, [durationHours]);
 
   // Load the clients list only while the modal is open (it is only used for the
   // name search). It used to load on every page that contains this modal.
@@ -233,11 +313,14 @@ export default function AppointmentModal({
       const start = initialData.start ? new Date(initialData.start) : null;
 
       if (start && !isNaN(start.getTime())) {
+        const hhmm = format(start, 'HH:mm');
         setDate(format(start, 'yyyy-MM-dd'));
-        setTime(snapToSlot(format(start, 'HH:mm')));
+        setTime(hhmm);
+        setTimeDraft(formatTypedTime(hhmm));
       } else {
         setDate('');
         setTime('');
+        setTimeDraft('');
       }
 
       setNotes(resource.notes || '');
@@ -265,8 +348,13 @@ export default function AppointmentModal({
         setDate('');
       }
 
-      if (selectedTime) setTime(snapToSlot(selectedTime));
-      else setTime('');
+      if (selectedTime && timeToMinutes(selectedTime) != null) {
+        setTime(selectedTime);
+        setTimeDraft(formatTypedTime(selectedTime));
+      } else {
+        setTime('');
+        setTimeDraft('');
+      }
       const matched = services.find((s) => s.name === defaultService);
       setDurationHours(minutesToHoursString(matched?.defaultDurationMin || 30));
       setNotes('');
@@ -327,54 +415,56 @@ export default function AppointmentModal({
     }));
   }, [dayAppointments, date]);
 
+  const selectedRange = useMemo(() => {
+    const start = timeToMinutes(time);
+    if (start == null) return null;
+    return { start, end: start + durationMinutes };
+  }, [time, durationMinutes]);
+
+  const timeConflict = useMemo(() => {
+    if (!date || !selectedRange) return false;
+    return busyIntervals.some((block) =>
+      rangesOverlap(selectedRange.start, selectedRange.end, block.startMin, block.endMin)
+    );
+  }, [date, selectedRange, busyIntervals]);
+
   const slotStates = useMemo(() => {
     return DAY_SLOTS.map((slot) => {
       const slotStart = slot.minutesFromMidnight;
       const slotEnd = slotStart + SLOT_STEP_MINUTES;
 
-      const covering = busyIntervals.find((b) =>
-        rangesOverlap(slotStart, slotEnd, b.startMin, b.endMin)
+      const busySegments = busyIntervals
+        .map((block) => coverageInSlot(slotStart, slotEnd, block.startMin, block.endMin))
+        .filter((seg): seg is SlotCoverage => seg != null && !seg.full);
+
+      const fullyTaken = busyIntervals.some(
+        (block) => block.startMin <= slotStart && block.endMin >= slotEnd
       );
-      const taken = Boolean(covering);
-
-      const bookingEnd = slotStart + durationMinutes;
-      const collidesWithDuration =
-        !taken &&
-        busyIntervals.some((b) =>
-          rangesOverlap(slotStart, bookingEnd, b.startMin, b.endMin)
-        );
-
-      const startsInSlot = covering
-        ? covering.startMin >= slotStart && covering.startMin < slotEnd
-        : false;
+      const starting = busyIntervals.find(
+        (block) => block.startMin >= slotStart && block.startMin < slotEnd
+      );
+      const open = slotStartIsOpen(slotStart, durationMinutes, busyIntervals);
+      const blocking = busyIntervals.find(
+        (block) => slotStart >= block.startMin && slotStart < block.endMin
+      );
 
       return {
         ...slot,
-        taken,
-        blocked: collidesWithDuration,
-        bookingLabel: startsInSlot ? covering?.label : undefined,
+        fullyTaken,
+        busySegments,
+        bookableStart: open ? slotStart : null,
+        freeAt: blocking && blocking.endMin < slotEnd ? blocking.endMin : null,
+        bookingLabel: starting?.label,
+        selection: selectedRange
+          ? coverageInSlot(slotStart, slotEnd, selectedRange.start, selectedRange.end)
+          : null,
+        containsStart:
+          selectedRange != null &&
+          selectedRange.start >= slotStart &&
+          selectedRange.start < slotEnd,
       };
     });
-  }, [busyIntervals, durationMinutes]);
-
-  const selectedRange = useMemo(() => {
-    if (!time) return null;
-    const match = DAY_SLOTS.find((s) => s.time === time);
-    if (!match) return null;
-    return {
-      start: match.minutesFromMidnight,
-      end: match.minutesFromMidnight + durationMinutes,
-    };
-  }, [time, durationMinutes]);
-
-  // Clear selection if duration change makes current start invalid
-  useEffect(() => {
-    if (!time || !date) return;
-    const slot = slotStates.find((s) => s.time === time);
-    if (slot && (slot.taken || slot.blocked)) {
-      setTime('');
-    }
-  }, [durationMinutes, date]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [busyIntervals, durationMinutes, selectedRange]);
 
   const handleBookingTypeChange = (type: BookingType) => {
     setBookingType(type);
@@ -415,9 +505,33 @@ export default function AppointmentModal({
     setShowClientList(false);
   };
 
-  const selectSlot = (slotTime: string, disabled: boolean) => {
-    if (disabled) return;
-    setTime(slotTime);
+  const selectSlot = (bookableStart: number | null) => {
+    if (bookableStart == null) return;
+    const hhmm = minutesToHHMM(bookableStart);
+    setTime(hhmm);
+    setTimeDraft(formatTypedTime(hhmm));
+    setFieldErrors((prev) => ({ ...prev, time: false }));
+  };
+
+  const handleTimeDraftChange = (raw: string) => {
+    setTimeDraft(raw);
+    const parsed = parseFlexibleTime(raw);
+    setTime(parsed ?? '');
+    if (parsed) setFieldErrors((prev) => ({ ...prev, time: false }));
+  };
+
+  const handleTimeDraftBlur = () => {
+    if (!timeDraft.trim()) {
+      setTime('');
+      return;
+    }
+    const parsed = parseFlexibleTime(timeDraft, true);
+    if (!parsed) {
+      setTime('');
+      return;
+    }
+    setTime(parsed);
+    setTimeDraft(formatTypedTime(parsed));
     setFieldErrors((prev) => ({ ...prev, time: false }));
   };
 
@@ -426,11 +540,16 @@ export default function AppointmentModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    const resolvedTime =
+      parseFlexibleTime(timeDraft, true) ||
+      (timeToMinutes(time) != null ? time : null);
+    const resolvedStart = resolvedTime ? timeToMinutes(resolvedTime) : null;
+
     const missingFields = {
       client: bookingType === 'client' && !clientName,
       eventTitle: bookingType === 'custom' && !eventTitle.trim(),
       date: !date,
-      time: !time,
+      time: resolvedStart == null,
     };
 
     setFieldErrors(missingFields);
@@ -441,7 +560,11 @@ export default function AppointmentModal({
       missingFields.date ||
       missingFields.time
     ) {
-      setErrorMessage('Please fill in the highlighted fields.');
+      setErrorMessage(
+        missingFields.time && timeDraft.trim()
+          ? 'Enter a time like 10:00 AM, or choose a slot.'
+          : 'Please fill in the highlighted fields.'
+      );
       setTimeout(() => {
         setErrorMessage('');
         setFieldErrors({
@@ -454,9 +577,16 @@ export default function AppointmentModal({
       return;
     }
 
-    const chosen = slotStates.find((s) => s.time === time);
-    if (chosen && (chosen.taken || chosen.blocked)) {
-      setErrorMessage('That time overlaps an existing booking. Pick another slot.');
+    const overlapsBooking = busyIntervals.some((block) =>
+      rangesOverlap(
+        resolvedStart as number,
+        (resolvedStart as number) + durationMinutes,
+        block.startMin,
+        block.endMin
+      )
+    );
+    if (resolvedStart == null || !resolvedTime || overlapsBooking) {
+      setErrorMessage('That time overlaps an existing booking. Pick another time.');
       setFieldErrors((prev) => ({ ...prev, time: true }));
       return;
     }
@@ -470,7 +600,7 @@ export default function AppointmentModal({
     });
     setIsSubmitting(true);
 
-    const startDateTime = new Date(`${date}T${time}`);
+    const startDateTime = new Date(`${date}T${resolvedTime}`);
     const endDateTime = addMinutes(startDateTime, durationMinutes);
 
     const payload: AppointmentSavePayload =
@@ -687,30 +817,72 @@ export default function AppointmentModal({
               onChange={(e) => {
                 setDate(e.target.value);
                 setTime('');
+                setTimeDraft('');
               }}
             />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Duration (hours)
+              Duration
             </label>
-            <div className="relative">
-              <input
-                type="number"
-                min="0.25"
-                max="24"
-                step="0.25"
-                inputMode="decimal"
-                placeholder="e.g. 1.5"
-                className="w-full px-3 py-2 pr-16 border border-gray-300 rounded-lg outline-none bg-white focus:ring-2 focus:ring-slate-900"
-                value={durationHours}
-                onChange={(e) => setDurationHours(e.target.value)}
-              />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400 pointer-events-none">
-                hours
-              </span>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="relative">
+                <input
+                  type="number"
+                  min="0.01"
+                  max="24"
+                  step="0.25"
+                  inputMode="decimal"
+                  placeholder="e.g. 1.5"
+                  aria-label="Duration in hours"
+                  className="w-full px-3 py-2 pr-14 border border-gray-300 rounded-lg outline-none bg-white focus:ring-2 focus:ring-slate-900"
+                  value={durationHours}
+                  onChange={(e) => setDurationHours(e.target.value)}
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400 pointer-events-none">
+                  hours
+                </span>
+              </div>
+              <div className="relative">
+                <input
+                  type="number"
+                  min="1"
+                  max="1440"
+                  step="1"
+                  inputMode="numeric"
+                  placeholder="20"
+                  aria-label="Duration in minutes"
+                  className="w-full px-3 py-2 pr-12 border border-gray-300 rounded-lg outline-none bg-white focus:ring-2 focus:ring-slate-900"
+                  value={durationMinutesDraft}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    setDurationMinutesDraft(raw);
+                    const minutes = Number(raw);
+                    if (raw.trim() !== '' && Number.isFinite(minutes) && minutes > 0) {
+                      setDurationHours(
+                        minutesToHoursString(Math.min(1440, Math.round(minutes)))
+                      );
+                    }
+                  }}
+                  onBlur={() => {
+                    const hours = parseFloat(durationHours);
+                    if (Number.isNaN(hours) || hours <= 0) {
+                      setDurationHours('0.5');
+                      setDurationMinutesDraft('30');
+                      return;
+                    }
+                    setDurationMinutesDraft(String(hoursStringToMinutes(durationHours)));
+                  }}
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400 pointer-events-none">
+                  min
+                </span>
+              </div>
             </div>
+            <p className="mt-1 text-[11px] text-slate-400">
+              Type hours, like 1.5, or minutes, like 20.
+            </p>
             <div className="flex flex-wrap gap-1.5 mt-2">
               {DURATION_QUICK_PICKS.map((pick) => {
                 const isActive =
@@ -733,25 +905,52 @@ export default function AppointmentModal({
             </div>
           </div>
 
-          {/* Escape-room style availability grid */}
+          {/* Slot grid plus a typed time */}
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="block text-sm font-medium text-gray-700">
-                Available hours
+            <div className="flex items-center justify-between mb-1.5">
+              <label
+                htmlFor="appointment-time"
+                className="block text-sm font-medium text-gray-700"
+              >
+                Time
               </label>
               {time && (
                 <span className="text-xs font-medium text-slate-500">
-                  Selected {formatSlotLabel(time)}
+                  Selected {formatTypedTime(time)}
                   {durationMinutes >= 60
                     ? ` · ${minutesToHoursString(durationMinutes)}h`
                     : ` · ${durationMinutes}m`}
                 </span>
               )}
             </div>
+            <input
+              id="appointment-time"
+              type="text"
+              inputMode="text"
+              autoComplete="off"
+              spellCheck={false}
+              placeholder="10:00 AM"
+              value={timeDraft}
+              onChange={(e) => handleTimeDraftChange(e.target.value)}
+              onBlur={handleTimeDraftBlur}
+              className={`w-full px-3 py-2 border rounded-lg outline-none bg-white ${
+                fieldErrors.time || timeConflict
+                  ? 'border-red-500 focus:ring-red-500 bg-red-50'
+                  : 'border-gray-300 focus:ring-2 focus:ring-slate-900 focus:border-slate-900'
+              }`}
+            />
+            <p className="mt-1 text-[11px] text-slate-400">
+              Type a time like 10:00 AM, or choose a slot below.
+            </p>
+            {timeConflict && (
+              <p className="mt-1 text-xs font-medium text-red-600">
+                That time overlaps an existing booking.
+              </p>
+            )}
 
             {!date ? (
               <div
-                className={`rounded-xl border border-dashed px-4 py-8 text-center text-sm text-slate-400 ${
+                className={`mt-3 rounded-xl border border-dashed px-4 py-8 text-center text-sm text-slate-400 ${
                   fieldErrors.date ? 'border-red-300 bg-red-50' : 'border-slate-200 bg-slate-50'
                 }`}
               >
@@ -759,8 +958,8 @@ export default function AppointmentModal({
               </div>
             ) : (
               <div
-                className={`rounded-xl border p-3 ${
-                  fieldErrors.time
+                className={`mt-3 rounded-xl border p-3 ${
+                  fieldErrors.time || timeConflict
                     ? 'border-red-300 bg-red-50/40'
                     : 'border-slate-200 bg-slate-50/60'
                 }`}
@@ -773,43 +972,74 @@ export default function AppointmentModal({
                   <>
                     <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
                       {slotStates.map((slot) => {
-                        const isStart = time === slot.time;
-                        const inRange =
-                          selectedRange != null &&
-                          slot.minutesFromMidnight >= selectedRange.start &&
-                          slot.minutesFromMidnight < selectedRange.end;
-                        const disabled = slot.taken || slot.blocked;
+                        const disabled = slot.bookableStart == null;
+                        const partialBusy = slot.busySegments.length > 0;
+                        const solidSelected =
+                          Boolean(slot.selection?.full) && !disabled && !timeConflict;
+                        const isStart = solidSelected && slot.containsStart;
+                        const title = slot.fullyTaken
+                          ? slot.bookingLabel
+                            ? `Taken — ${slot.bookingLabel}`
+                            : 'Taken'
+                          : disabled
+                            ? slot.freeAt != null
+                              ? `Busy until ${minutesToClockLabel(slot.freeAt)}. Type that time to use the open part.`
+                              : 'Not enough open time for this duration'
+                            : `Book ${formatTypedTime(slot.time)}`;
 
                         return (
                           <button
                             key={slot.time}
                             type="button"
                             disabled={disabled}
-                            title={
-                              slot.taken
-                                ? slot.bookingLabel
-                                  ? `Taken — ${slot.bookingLabel}`
-                                  : 'Taken'
-                                : slot.blocked
-                                  ? 'Not enough open time for this duration'
-                                  : `Book ${slot.time}`
-                            }
-                            onClick={() => selectSlot(slot.time, disabled)}
-                            className={`relative min-h-[2.75rem] rounded-lg border text-xs font-semibold transition-all ${
-                              slot.taken
+                            title={title}
+                            onClick={() => selectSlot(slot.bookableStart)}
+                            className={`relative overflow-hidden min-h-[2.75rem] rounded-lg border text-xs font-semibold transition-all ${
+                              slot.fullyTaken
                                 ? 'bg-slate-200/90 border-slate-200 text-slate-400 cursor-not-allowed line-through decoration-slate-400/80'
-                                : slot.blocked
-                                  ? 'bg-slate-100 border-slate-200 text-slate-300 cursor-not-allowed'
+                                : disabled
+                                  ? partialBusy
+                                    ? 'bg-white border-slate-200 text-slate-500 cursor-not-allowed'
+                                    : 'bg-slate-100 border-slate-200 text-slate-300 cursor-not-allowed'
                                   : isStart
                                     ? 'bg-slate-900 border-slate-900 text-white shadow-md ring-2 ring-slate-900/20'
-                                    : inRange
+                                    : solidSelected
                                       ? 'bg-slate-700 border-slate-700 text-white'
-                                      : 'bg-white border-emerald-200 text-emerald-800 hover:border-emerald-400 hover:bg-emerald-50'
+                                      : `bg-white text-emerald-800 hover:border-emerald-400 hover:bg-emerald-50 ${
+                                          slot.containsStart
+                                            ? 'border-slate-900 ring-2 ring-slate-900/20'
+                                            : 'border-emerald-200'
+                                        }`
                             }`}
                           >
-                            <span className="block">{formatSlotLabel(slot.time)}</span>
-                            {slot.taken && slot.bookingLabel && (
-                              <span className="block text-[9px] font-medium truncate px-1 text-slate-400 no-underline">
+                            {!slot.fullyTaken &&
+                              slot.busySegments.map((seg, index) => (
+                                <span
+                                  key={`${slot.time}-busy-${index}`}
+                                  className="absolute inset-y-0 bg-slate-300/95 pointer-events-none"
+                                  style={{ left: `${seg.left}%`, width: `${seg.width}%` }}
+                                />
+                              ))}
+                            {slot.selection && !slot.selection.full && !timeConflict && (
+                              <span
+                                className="absolute inset-y-0 z-0 bg-slate-900/20 pointer-events-none"
+                                style={{
+                                  left: `${slot.selection.left}%`,
+                                  width: `${slot.selection.width}%`,
+                                }}
+                              />
+                            )}
+                            <span
+                              className={`relative z-10 block ${
+                                partialBusy && !solidSelected
+                                  ? 'bg-white/80 rounded px-0.5 mx-1'
+                                  : ''
+                              }`}
+                            >
+                              {formatSlotLabel(slot.time)}
+                            </span>
+                            {(slot.fullyTaken || partialBusy) && slot.bookingLabel && (
+                              <span className="relative z-10 block text-[9px] font-medium truncate px-1 text-slate-500 no-underline">
                                 {slot.bookingLabel}
                               </span>
                             )}
@@ -825,7 +1055,13 @@ export default function AppointmentModal({
                       </span>
                       <span className="inline-flex items-center gap-1.5">
                         <span className="w-3 h-3 rounded bg-slate-200" />
-                        Taken
+                        Busy
+                      </span>
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className="relative w-3 h-3 rounded border border-slate-200 bg-white overflow-hidden">
+                          <span className="absolute inset-y-0 left-0 w-1/2 bg-slate-300" />
+                        </span>
+                        Partly busy
                       </span>
                       <span className="inline-flex items-center gap-1.5">
                         <span className="w-3 h-3 rounded bg-slate-900" />
@@ -844,7 +1080,7 @@ export default function AppointmentModal({
             </label>
             <textarea
               rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none resize-nonefocus:ring-2 focus:ring-slate-900"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none resize-none focus:ring-2 focus:ring-slate-900"
               placeholder="Add details..."
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
