@@ -32,6 +32,10 @@ Esther is learning git and deploying, and is nervous about breaking the live app
 ## Tech
 Next.js 16 (App Router, Turbopack, `src/proxy.ts` is the login gate), React 19, TypeScript, Tailwind, Prisma 5.22 with PostgreSQL (Supabase, Sydney), `@tanstack/react-query`, `react-big-calendar` with date-fns, lucide-react icons. Hosted on Vercel (Hobby), function region Sydney. The `@/` alias points to `src/`. Local `.env` points to a TEST database, never production.
 
+## Hosting and backups
+- **The repository is public, and must stay public.** Vercel's free Hobby plan only deploys commits from people who are not the owner when the repo is public. When it was made private (October 2026), every deployment from Esther's commits was blocked. Do not change the repo's visibility without Miri and a plan for Vercel.
+- **A nightly encrypted database backup runs in GitHub Actions** (`.github/workflows/nightly-backup.yml`, plus `backup-restore-test.yml` to test it by hand). It uses two repository secrets, `PROD_DATABASE_URL` and `BACKUP_PASSPHRASE`. Never commit, print or share a backup, the database address, or either secret value.
+
 ## Rules for the code
 - **Every API route must call `getUser()` and return 401 if there is no user.** `src/proxy.ts` does NOT protect `/api`, so each route must check for itself. Always scope data to the logged-in user (`ownerId`) and check that a record belongs to them before reading or changing it. Check the role where it matters (`OWNER`, `SECRETARY`, `GUEST`). Guest writes return a simulated success.
 - Speed matters a lot. Do not load the full clients list on page load; use targeted queries (`select` only what is needed). Share react-query keys instead of fetching the same data twice.
