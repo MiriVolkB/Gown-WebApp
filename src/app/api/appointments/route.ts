@@ -95,6 +95,39 @@ export async function GET() {
   }
 }
 
+type SavedClient = { id: number; name: string };
+type SavedService = { id: number; name: string; color: string | null };
+
+function appointmentResponse(
+  row: {
+    id: number;
+    start: Date;
+    end: Date;
+    title: string | null;
+    notes: string | null;
+    clientId: number | null;
+    serviceId: number;
+    status: string;
+    ownerId: string | null;
+  },
+  client: SavedClient | null,
+  service: SavedService
+) {
+  return {
+    id: row.id,
+    start: row.start,
+    end: row.end,
+    title: row.title,
+    notes: row.notes,
+    clientId: row.clientId,
+    serviceId: row.serviceId,
+    status: row.status,
+    ownerId: row.ownerId,
+    client: client ? { id: client.id, name: client.name } : null,
+    service: { id: service.id, name: service.name, color: service.color },
+  };
+}
+
 // POST: Create OR Update Appointment
 export async function POST(request: Request) {
   try {
@@ -112,7 +145,14 @@ export async function POST(request: Request) {
     const existing = body.id
       ? await prisma.appointment.findFirst({
           where: { id: Number(body.id), ...ownedAppointmentWhere(user.id) },
-          include: { service: true },
+          select: {
+            id: true,
+            clientId: true,
+            ownerId: true,
+            notes: true,
+            title: true,
+            serviceId: true,
+          },
         })
       : null;
 
@@ -126,93 +166,98 @@ export async function POST(request: Request) {
         (Boolean(body.eventTitle || body.title) ||
           (!body.clientId && !body.clientName && existing?.clientId == null)));
 
-    // --- 1. HANDLE CLIENT (optional for custom events) ---
-    let finalClientId: number | null = null;
     let eventTitle: string | null = null;
-
     if (isCustomEvent) {
-      eventTitle = (
-        body.eventTitle ||
-        body.title ||
-        existing?.title ||
-        ''
-      ).trim();
+      eventTitle = (body.eventTitle || body.title || existing?.title || '').trim();
       if (!eventTitle) {
         return NextResponse.json({ error: 'Event title is required' }, { status: 400 });
       }
-    } else {
-      finalClientId = body.clientId
-        ? Number(body.clientId)
-        : existing?.clientId ?? null;
+    }
 
-      if (!finalClientId && body.clientName) {
-        const existingClient = await prisma.client.findFirst({
-          where: {
-            ownerId: user.id,
-            name: {
-              equals: body.clientName,
-              mode: 'insensitive',
-            },
-          },
+    const serviceName = (
+      body.serviceName ||
+      (isCustomEvent ? 'Other' : '')
+    ).trim();
+
+    // Client and service lookups are independent, so they run together.
+    const servicePromise = (async (): Promise<SavedService> => {
+      const name = serviceName || (isCustomEvent ? 'Other' : 'Appointment');
+      const found = name
+        ? await prisma.service.findFirst({
+            where: { name },
+            select: { id: true, name: true, color: true },
+          })
+        : null;
+      if (found) return found;
+
+      const fallbackId = body.serviceId || existing?.serviceId;
+      if (fallbackId) {
+        const byId = await prisma.service.findUnique({
+          where: { id: Number(fallbackId) },
+          select: { id: true, name: true, color: true },
         });
-
-        if (existingClient) {
-          finalClientId = existingClient.id;
-        } else {
-          const newClient = await prisma.client.create({
-            data: {
-              name: body.clientName,
-              phone: body.clientPhone || '000-000-0000',
-              ownerId: user.id,
-            },
-          });
-          finalClientId = newClient.id;
-        }
+        if (byId) return byId;
       }
 
-      if (!finalClientId) {
-        return NextResponse.json({ error: 'Client is required' }, { status: 400 });
-      }
-
-      const ownedClient = await prisma.client.findFirst({
-        where: { id: finalClientId, ownerId: user.id },
-        select: { id: true },
-      });
-      if (!ownedClient) {
-        return NextResponse.json({ error: 'Client not found' }, { status: 404 });
-      }
-    }
-
-    // --- 2. HANDLE SERVICE ---
-    const serviceName = isCustomEvent
-      ? body.serviceName || existing?.service?.name || 'Other'
-      : body.serviceName || existing?.service?.name;
-
-    let service = serviceName
-      ? await prisma.service.findFirst({ where: { name: serviceName } })
-      : null;
-
-    if (!service && (body.serviceId || existing?.serviceId)) {
-      service = await prisma.service.findUnique({
-        where: { id: Number(body.serviceId || existing?.serviceId) },
-      });
-    }
-
-    if (!service) {
-      service = await prisma.service.create({
+      return prisma.service.create({
         data: {
-          name: serviceName || (isCustomEvent ? 'Other' : 'Appointment'),
+          name,
           defaultDurationMin: 30,
           color: isCustomEvent ? '#64748b' : '#3b82f6',
         },
+        select: { id: true, name: true, color: true },
       });
+    })();
+    // Keep a rejection from becoming an unhandled error if we return early.
+    void servicePromise.catch(() => undefined);
+
+    let client: SavedClient | null = null;
+
+    if (!isCustomEvent) {
+      const requestedClientId = body.clientId
+        ? Number(body.clientId)
+        : existing?.clientId ?? null;
+
+      if (requestedClientId) {
+        client = await prisma.client.findFirst({
+          where: { id: requestedClientId, ownerId: user.id },
+          select: { id: true, name: true },
+        });
+        if (!client) {
+          return NextResponse.json({ error: 'Client not found' }, { status: 404 });
+        }
+      } else if (body.clientName) {
+        const name = String(body.clientName).trim();
+        client = await prisma.client.findFirst({
+          where: {
+            ownerId: user.id,
+            name: { equals: name, mode: 'insensitive' },
+          },
+          select: { id: true, name: true },
+        });
+        if (!client) {
+          client = await prisma.client.create({
+            data: {
+              name,
+              phone: body.clientPhone || '000-000-0000',
+              ownerId: user.id,
+            },
+            select: { id: true, name: true },
+          });
+        }
+      }
+
+      if (!client) {
+        return NextResponse.json({ error: 'Client is required' }, { status: 400 });
+      }
     }
 
-    // --- 3. PREPARE DATA ---
+    const service = await servicePromise;
+
     const appointmentData = {
       start: new Date(body.start),
       end: new Date(body.end),
-      clientId: finalClientId,
+      clientId: client?.id ?? null,
       title: eventTitle,
       serviceId: service.id,
       date: new Date(body.start),
@@ -223,21 +268,14 @@ export async function POST(request: Request) {
       ownerId: existing?.ownerId || user.id,
     };
 
-    // --- 4. SAVE ---
-    if (existing) {
-      const updated = await prisma.appointment.update({
-        where: { id: existing.id },
-        data: appointmentData,
-        include: { client: true, service: true },
-      });
-      return NextResponse.json(updated);
-    }
+    const saved = existing
+      ? await prisma.appointment.update({
+          where: { id: existing.id },
+          data: appointmentData,
+        })
+      : await prisma.appointment.create({ data: appointmentData });
 
-    const created = await prisma.appointment.create({
-      data: appointmentData,
-      include: { client: true, service: true },
-    });
-    return NextResponse.json(created);
+    return NextResponse.json(appointmentResponse(saved, client, service));
   } catch (error) {
     console.error('API Error:', error);
     return NextResponse.json({ error: 'Server Error' }, { status: 500 });

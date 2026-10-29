@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { ChevronDown, CheckCircle2, AlertCircle } from 'lucide-react';
 import { format, isSameDay, parseISO, startOfDay, addMinutes } from 'date-fns';
-import { useRouter } from 'next/navigation';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { BaseModal } from '@/components/BaseModal';
 import type { AppointmentSavePayload, BookingType } from '@/types';
 
@@ -30,6 +30,8 @@ const DURATION_QUICK_PICKS = [
   { hours: 12, label: '12h' },
   { hours: 24, label: 'All day' },
 ];
+
+const EMPTY_CLIENTS: any[] = [];
 
 const SLOT_START_HOUR = 8;
 const SLOT_END_HOUR = 21; // last start hour inclusive
@@ -171,14 +173,31 @@ function coverageInSlot(
   return { left, width, full: width >= 99.5 };
 }
 
-/** True when an appointment can start on this slot's own time for the chosen duration. */
-function slotStartIsOpen(
+/**
+ * Earliest start inside this slot where the chosen duration fits.
+ * A 10:00 slot that is busy until 10:15 can still be chosen, and books 10:15.
+ */
+function firstOpenStart(
   slotStart: number,
+  slotEnd: number,
   duration: number,
   busy: { startMin: number; endMin: number }[]
-): boolean {
-  const end = slotStart + duration;
-  return !busy.some((block) => rangesOverlap(slotStart, end, block.startMin, block.endMin));
+): number | null {
+  const candidates = new Set<number>([slotStart]);
+  for (const block of busy) {
+    if (block.endMin > slotStart && block.endMin < slotEnd) {
+      candidates.add(block.endMin);
+    }
+  }
+
+  for (const start of [...candidates].sort((a, b) => a - b)) {
+    const end = start + duration;
+    const overlaps = busy.some((block) =>
+      rangesOverlap(start, end, block.startMin, block.endMin)
+    );
+    if (!overlaps) return start;
+  }
+  return null;
 }
 
 interface AppointmentModalProps {
@@ -186,7 +205,7 @@ interface AppointmentModalProps {
   onClose: () => void;
   selectedDate: Date | null;
   selectedTime: string | null;
-  onSave: (data: AppointmentSavePayload) => void | Promise<void>;
+  onSave: (data: AppointmentSavePayload) => unknown | Promise<unknown>;
   initialData?: any;
 }
 
@@ -198,7 +217,7 @@ export default function AppointmentModal({
   onSave,
   initialData,
 }: AppointmentModalProps) {
-  const router = useRouter();
+  const queryClient = useQueryClient();
   const [bookingType, setBookingType] = useState<BookingType>('client');
   const [clientName, setClientName] = useState('');
   const [clientId, setClientId] = useState<number | null>(null);
@@ -217,14 +236,12 @@ export default function AppointmentModal({
   const [time, setTime] = useState('');
   const [timeDraft, setTimeDraft] = useState('');
   const [durationHours, setDurationHours] = useState('0.5');
+  const durationFollowsService = useRef(true);
   const [durationMinutesDraft, setDurationMinutesDraft] = useState('30');
   const [notes, setNotes] = useState('');
 
-  const [clients, setClients] = useState<any[]>([]);
   const [filteredClients, setFilteredClients] = useState<any[]>([]);
   const [showClientList, setShowClientList] = useState(false);
-  const [dayAppointments, setDayAppointments] = useState<DayAppointment[]>([]);
-  const [loadingSlots, setLoadingSlots] = useState(false);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -246,23 +263,48 @@ export default function AppointmentModal({
     setDurationMinutesDraft(String(hoursStringToMinutes(durationHours)));
   }, [durationHours]);
 
-  // Load the clients list only while the modal is open (it is only used for the
-  // name search). It used to load on every page that contains this modal.
+  // Names are prefetched when the app loads, so this is usually already here.
+  const { data: clients = EMPTY_CLIENTS, isFetched: clientsFetched } = useQuery({
+    queryKey: ['clients-picker'],
+    queryFn: async () => {
+      const res = await fetch('/api/clients?fields=picker');
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
+    },
+    enabled: isOpen,
+    staleTime: 5 * 60_000,
+  });
+  const clientsStatus = clientsFetched || clients.length > 0 ? 'ready' : 'loading';
+
+  // If the service list is still loading when a service is picked, apply its
+  // length once the list arrives. A hand-typed duration is left alone.
   useEffect(() => {
-    if (!isOpen) return;
+    if (bookingType !== 'client' || !durationFollowsService.current) return;
+    const matched = services.find((s) => s.name === serviceName);
+    if (!matched?.defaultDurationMin) return;
+    setDurationHours(minutesToHoursString(matched.defaultDurationMin));
+  }, [services, serviceName, bookingType]);
 
-    let cancelled = false;
-    fetch('/api/clients')
-      .then((res) => res.json())
-      .then((data) => {
-        if (!cancelled && Array.isArray(data)) setClients(data);
-      })
-      .catch((err) => console.error(err));
+  // Re-run the name search when the typed name changes AND when the client
+  // list arrives. Typing before that fetch finishes used to leave the
+  // suggestion list empty for good.
+  useEffect(() => {
+    const term = clientName.trim();
+    if (!term || clientId != null) {
+      setFilteredClients([]);
+      setShowClientList(false);
+      return;
+    }
 
-    return () => {
-      cancelled = true;
-    };
-  }, [isOpen]);
+    const needle = term.toLowerCase();
+    const matches = clients.filter((c) =>
+      String(c.name || '')
+        .toLowerCase()
+        .includes(needle)
+    );
+    setFilteredClients(matches);
+    if (matches.length > 0) setShowClientList(true);
+  }, [clients, clientName, clientId]);
 
   useEffect(() => {
     fetch('/api/services')
@@ -282,6 +324,7 @@ export default function AppointmentModal({
     const defaultService = names[0] || FALLBACK_SERVICES[0];
 
     if (initialData) {
+      durationFollowsService.current = false;
       const resource = initialData.resource || initialData;
       const isCustom =
         resource.clientId == null &&
@@ -335,6 +378,7 @@ export default function AppointmentModal({
         setDurationHours('0.5');
       }
     } else {
+      durationFollowsService.current = true;
       setBookingType('client');
       setClientName('');
       setClientId(null);
@@ -362,48 +406,41 @@ export default function AppointmentModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-init when modal opens / slot changes
   }, [isOpen, selectedDate, selectedTime, initialData]);
 
-  // Load appointments for the selected day (escape-room availability)
-  useEffect(() => {
-    if (!isOpen || !date) {
-      setDayAppointments([]);
-      return;
-    }
+  // Same list the calendar already loaded, so opening the form does not
+  // fetch every appointment again.
+  const { data: appointmentRows = [], isLoading: appointmentsLoading } = useQuery({
+    queryKey: ['appointments'],
+    queryFn: async () => {
+      const res = await fetch('/api/appointments');
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
+    },
+    enabled: isOpen,
+    staleTime: 60_000,
+  });
 
-    let cancelled = false;
-    setLoadingSlots(true);
-
-    fetch('/api/appointments')
-      .then((res) => res.json())
-      .then((data) => {
-        if (cancelled || !Array.isArray(data)) return;
-        const day = parseISO(date);
-        const appts: DayAppointment[] = data
-          .filter((appt: any) => {
-            if (!appt?.start || !appt?.end) return false;
-            if (editingId && appt.id === editingId) return false;
-            return isSameDay(new Date(appt.start), day);
-          })
-          .map((appt: any) => ({
-            id: appt.id,
-            start: new Date(appt.start),
-            end: new Date(appt.end),
-            label:
-              appt.title ||
-              appt.client?.name ||
-              appt.service?.name ||
-              'Booked',
-          }));
-        setDayAppointments(appts);
+  const dayAppointments = useMemo(() => {
+    if (!date) return [];
+    const day = parseISO(date);
+    return (appointmentRows as any[])
+      .filter((appt) => {
+        if (!appt?.start || !appt?.end) return false;
+        if (editingId && appt.id === editingId) return false;
+        return isSameDay(new Date(appt.start), day);
       })
-      .catch((err) => console.error(err))
-      .finally(() => {
-        if (!cancelled) setLoadingSlots(false);
-      });
+      .map((appt): DayAppointment => ({
+        id: appt.id,
+        start: new Date(appt.start),
+        end: new Date(appt.end),
+        label:
+          appt.title ||
+          appt.client?.name ||
+          appt.service?.name ||
+          'Booked',
+      }));
+  }, [appointmentRows, date, editingId]);
 
-    return () => {
-      cancelled = true;
-    };
-  }, [isOpen, date, editingId]);
+  const loadingSlots = isOpen && !!date && appointmentsLoading && appointmentRows.length === 0;
 
   const busyIntervals = useMemo(() => {
     if (!date) return [];
@@ -443,17 +480,15 @@ export default function AppointmentModal({
       const starting = busyIntervals.find(
         (block) => block.startMin >= slotStart && block.startMin < slotEnd
       );
-      const open = slotStartIsOpen(slotStart, durationMinutes, busyIntervals);
-      const blocking = busyIntervals.find(
-        (block) => slotStart >= block.startMin && slotStart < block.endMin
-      );
+      const bookableStart = fullyTaken
+        ? null
+        : firstOpenStart(slotStart, slotEnd, durationMinutes, busyIntervals);
 
       return {
         ...slot,
         fullyTaken,
         busySegments,
-        bookableStart: open ? slotStart : null,
-        freeAt: blocking && blocking.endMin < slotEnd ? blocking.endMin : null,
+        bookableStart,
         bookingLabel: starting?.label,
         selection: selectedRange
           ? coverageInSlot(slotStart, slotEnd, selectedRange.start, selectedRange.end)
@@ -471,12 +506,14 @@ export default function AppointmentModal({
     setFieldErrors({ client: false, eventTitle: false, date: false, time: false });
     setErrorMessage('');
     if (type === 'custom') {
+      durationFollowsService.current = false;
       setClientName('');
       setClientId(null);
       setClientPhone('');
       setShowClientList(false);
       setDurationHours('2');
     } else {
+      durationFollowsService.current = true;
       setEventTitle('');
       const matched = services.find((s) => s.name === serviceName);
       setDurationHours(minutesToHoursString(matched?.defaultDurationMin || 30));
@@ -484,18 +521,8 @@ export default function AppointmentModal({
   };
 
   const handleClientSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const term = e.target.value;
-    setClientName(term);
+    setClientName(e.target.value);
     setClientId(null);
-    if (term.length > 0) {
-      const matches = clients.filter((c) =>
-        c.name.toLowerCase().includes(term.toLowerCase())
-      );
-      setFilteredClients(matches);
-      setShowClientList(true);
-    } else {
-      setShowClientList(false);
-    }
   };
 
   const selectClient = (client: any) => {
@@ -627,7 +654,24 @@ export default function AppointmentModal({
           };
 
     try {
-      await onSave(payload);
+      const saved = await onSave(payload);
+      if (
+        saved &&
+        typeof saved === 'object' &&
+        'id' in saved &&
+        (saved as { id?: number }).id
+      ) {
+        const appointment = saved as { id: number; start: string | Date };
+        queryClient.setQueryData(['appointments'], (old: unknown) => {
+          const list = Array.isArray(old) ? old : [];
+          const next = list.filter((row) => row?.id !== appointment.id);
+          next.push(appointment);
+          next.sort(
+            (a, b) => new Date(a.start).getTime() - new Date(b.start).getTime()
+          );
+          return next;
+        });
+      }
 
       setShowSuccess(true);
 
@@ -635,7 +679,6 @@ export default function AppointmentModal({
         onClose();
         setShowSuccess(false);
         setIsSubmitting(false);
-        router.refresh();
       }, 2000);
     } catch (error) {
       console.error('Save failed:', error);
@@ -725,14 +768,18 @@ export default function AppointmentModal({
                         className="px-4 py-2 hover:bg-slate-50 cursor-pointer text-sm border-b last:border-0"
                         onClick={() => selectClient(client)}
                       >
-                        {client.name}
+                        <span dir="auto">{client.name}</span>
                       </div>
                     ))}
                   </div>
                 )}
               </div>
 
-              {clientName.length > 0 && clientId === null && (
+              {clientName.trim().length > 0 && clientId === null && clientsStatus === 'loading' && (
+                <p className="text-xs text-slate-400">Looking up clients…</p>
+              )}
+
+              {clientName.length > 0 && clientId === null && clientsStatus !== 'loading' && (
                 <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg animate-in fade-in slide-in-from-top-2 duration-200">
                   <span className="inline-block text-[11px] font-bold tracking-wider uppercase text-amber-600 bg-amber-50 px-2 py-0.5 rounded mb-2">
                     New Client Detected
@@ -761,6 +808,7 @@ export default function AppointmentModal({
                     value={serviceName}
                     onChange={(e) => {
                       const name = e.target.value;
+                      durationFollowsService.current = true;
                       setServiceName(name);
                       const matched = services.find((s) => s.name === name);
                       if (matched?.defaultDurationMin) {
@@ -832,13 +880,16 @@ export default function AppointmentModal({
                   type="number"
                   min="0.01"
                   max="24"
-                  step="0.25"
+                  step="any"
                   inputMode="decimal"
                   placeholder="e.g. 1.5"
                   aria-label="Duration in hours"
                   className="w-full px-3 py-2 pr-14 border border-gray-300 rounded-lg outline-none bg-white focus:ring-2 focus:ring-slate-900"
                   value={durationHours}
-                  onChange={(e) => setDurationHours(e.target.value)}
+                  onChange={(e) => {
+                    durationFollowsService.current = false;
+                    setDurationHours(e.target.value);
+                  }}
                 />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400 pointer-events-none">
                   hours
@@ -857,6 +908,7 @@ export default function AppointmentModal({
                   value={durationMinutesDraft}
                   onChange={(e) => {
                     const raw = e.target.value;
+                    durationFollowsService.current = false;
                     setDurationMinutesDraft(raw);
                     const minutes = Number(raw);
                     if (raw.trim() !== '' && Number.isFinite(minutes) && minutes > 0) {
@@ -891,7 +943,10 @@ export default function AppointmentModal({
                   <button
                     key={pick.hours}
                     type="button"
-                    onClick={() => setDurationHours(String(pick.hours))}
+                    onClick={() => {
+                      durationFollowsService.current = false;
+                      setDurationHours(String(pick.hours));
+                    }}
                     className={`px-2.5 py-1 text-xs font-medium rounded-md border transition-colors ${
                       isActive
                         ? 'bg-slate-900 text-white border-slate-900'
@@ -974,6 +1029,9 @@ export default function AppointmentModal({
                       {slotStates.map((slot) => {
                         const disabled = slot.bookableStart == null;
                         const partialBusy = slot.busySegments.length > 0;
+                        const opensLater =
+                          slot.bookableStart != null &&
+                          slot.bookableStart !== slot.minutesFromMidnight;
                         const solidSelected =
                           Boolean(slot.selection?.full) && !disabled && !timeConflict;
                         const isStart = solidSelected && slot.containsStart;
@@ -982,10 +1040,10 @@ export default function AppointmentModal({
                             ? `Taken — ${slot.bookingLabel}`
                             : 'Taken'
                           : disabled
-                            ? slot.freeAt != null
-                              ? `Busy until ${minutesToClockLabel(slot.freeAt)}. Type that time to use the open part.`
-                              : 'Not enough open time for this duration'
-                            : `Book ${formatTypedTime(slot.time)}`;
+                            ? 'Not enough open time for this duration'
+                            : opensLater
+                              ? `Starts at ${minutesToClockLabel(slot.bookableStart as number)}`
+                              : `Book ${formatTypedTime(slot.time)}`;
 
                         return (
                           <button
@@ -1038,7 +1096,12 @@ export default function AppointmentModal({
                             >
                               {formatSlotLabel(slot.time)}
                             </span>
-                            {(slot.fullyTaken || partialBusy) && slot.bookingLabel && (
+                            {opensLater && (
+                              <span className="relative z-10 block text-[9px] font-semibold text-emerald-700 no-underline">
+                                {minutesToClockLabel(slot.bookableStart as number)}
+                              </span>
+                            )}
+                            {slot.fullyTaken && slot.bookingLabel && (
                               <span className="relative z-10 block text-[9px] font-medium truncate px-1 text-slate-500 no-underline">
                                 {slot.bookingLabel}
                               </span>

@@ -191,12 +191,11 @@ export default function CalendarPage() {
       body: JSON.stringify(data),
     });
 
-    if (res.ok) {
-      setIsModalOpen(false);
-      refreshAppointments();
-    } else {
-      alert('Failed to save.');
+    if (!res.ok) {
+      throw new Error('Failed to save.');
     }
+
+    return res.json();
   };
 
   const displayedEvents = showWeddingsOnly ? weddingEvents : appointments;

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { useModal } from "@/hooks/use-modal-store";
 import { AddClientModal } from "@/components/AddClientModal";
 import AppointmentModal from "@/components/AppointmentModal";
@@ -12,6 +13,20 @@ export const ModalProvider = () => {
   const { isOpen, onClose, type, data } = useModal();
   const [projects, setProjects] = useState<any[]>([]);
   const router = useRouter();
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    queryClient.prefetchQuery({
+      queryKey: ['clients-picker'],
+      staleTime: 5 * 60_000,
+      queryFn: async () => {
+        const res = await fetch('/api/clients?fields=picker');
+        if (!res.ok) return [];
+        const data = await res.json();
+        return Array.isArray(data) ? data : [];
+      },
+    });
+  }, [queryClient]);
 
   useEffect(() => {
     if (type === "addExpense" ) {
@@ -57,7 +72,7 @@ export const ModalProvider = () => {
               console.error("Server Error Details:", errorText);
               throw new Error("Server failed to respond correctly");
             }
-            // Let the modal handle the success message now!
+            return response.json();
           }} 
         />
       )}

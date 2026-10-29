@@ -83,6 +83,17 @@ export async function GET(req: Request) {
       return NextResponse.json(weddings);
     }
 
+    // Name search in the appointment form — id, name, and phone only.
+    // The full client grid loads projects and payments, which is much slower.
+    if (fields === "picker") {
+      const clients = await prisma.client.findMany({
+        where: { ownerId: user.id },
+        select: { id: true, name: true, phone: true },
+        orderBy: { name: "asc" },
+      });
+      return NextResponse.json(clients);
+    }
+
     // Lightweight list for the clients grid — only fields the UI actually reads
     const clients = await prisma.client.findMany({
       where: { ownerId: user.id },

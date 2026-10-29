@@ -518,6 +518,10 @@ export default function MyCalendar({ events, onSlotClick, onEventClick, onEventU
         }
         /* Appointments don't use the all-day row, so keep it hidden */
         .appt-mode .rbc-allday-cell { display: none !important; }
+        /* The calendar leaves a 10px gutter so events stop short of the column edge. */
+        .appt-mode .rbc-day-slot .rbc-events-container {
+          margin-right: 0 !important;
+        }
         /* Weddings week view: weddings are all-day items shown as cards.
            Show the all-day row, hide the empty hour grid under it. */
         .wedding-mode .rbc-time-content { display: none !important; }
@@ -573,6 +577,7 @@ export default function MyCalendar({ events, onSlotClick, onEventClick, onEventU
             resizable
             resizableAccessor={() => !isWeddingView}
             selectable
+            dayLayoutAlgorithm="no-overlap"
             onSelectSlot={(slotInfo: any) => {
               if (onSlotClick) onSlotClick(slotInfo);
             }}
