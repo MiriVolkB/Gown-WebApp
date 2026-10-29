@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { calculateGlobalFinances } from "@/lib/finances";
 import { calculateFamilyFinances } from "@/lib/calculations";
 
@@ -18,51 +18,66 @@ export default function FinancesPage() {
     const [lifetimeRaw, setLifetimeRaw] = useState<any>(null); // raw lifetime response for breakdowns
     const [showBreakdown, setShowBreakdown] = useState<{ revenue?: boolean; expenses?: boolean; profit?: boolean; balances?: boolean }>({});
     const [copiedItems, setCopiedItems] = useState<Record<string, boolean>>({});
+    // Each report tracks its own failure, so a failed request shows a message instead of 0 NIS
+    const [lifetimeError, setLifetimeError] = useState(false);
+    const [periodError, setPeriodError] = useState(false);
 
-    useEffect(() => {
-        setLoading(true);
-
-        // Fetch LIFETIME stats (all-time) and keep raw data for breakdowns
+    // Fetch LIFETIME stats (all-time) and keep raw data for breakdowns
+    const loadLifetime = useCallback(() => {
+        setLifetimeError(false);
         fetch(`/api/finances?month=all&year=all`)
-            .then(res => res.json())
-            .then(json => {
-                if (json) {
-                    const stats = calculateGlobalFinances(json.projects, json.payments, json.expenses);
-                    setLifetimeStats(stats);
-                    setLifetimeRaw(json);
-                }
-            });
-
-        // Fetch FILTERED stats (your existing logic)
-        fetch(`/api/finances?month=${selectedMonth}&year=${selectedYear}`)
-            .then(res => res.json())
-            .then(json => {
-                if (json) {
-                    setData(json);
-                    setLoading(false);
-                }
+            .then(res => {
+                if (!res.ok) throw new Error(`Lifetime summary failed with status ${res.status}`);
+                return res.json();
             })
-            .catch(err => console.error("Fetch error:", err));
+            .then(json => {
+                setLifetimeStats(calculateGlobalFinances(json.projects, json.payments, json.expenses));
+                setLifetimeRaw(json);
+            })
+            .catch(() => {
+                setLifetimeStats(null);
+                setLifetimeError(true);
+            });
+    }, []);
+
+    // Fetch FILTERED stats for the selected month and year
+    const loadPeriod = useCallback(() => {
+        setLoading(true);
+        setPeriodError(false);
+        fetch(`/api/finances?month=${selectedMonth}&year=${selectedYear}`)
+            .then(res => {
+                if (!res.ok) throw new Error(`Report failed with status ${res.status}`);
+                return res.json();
+            })
+            .then(json => setData(json))
+            .catch(() => {
+                // Clear the old numbers so another month's figures never show under this title
+                setData(null);
+                setPeriodError(true);
+            })
+            .finally(() => setLoading(false));
     }, [selectedMonth, selectedYear]);
 
-// if data hasn't arrived yet or the fetch failed, show message
-    if (!data) {
-        if (loading) {
-            return <div className="p-8 font-serif italic text-slate-400">Loading initial data...</div>;
-        }
-        return <div className="p-8 font-serif italic text-slate-400">No financial data available.</div>;
+    useEffect(() => {
+        loadLifetime();
+        loadPeriod();
+    }, [loadLifetime, loadPeriod]);
+
+    // if data hasn't arrived yet, show message (a failed report shows its own message below)
+    if (!data && !periodError) {
+        return <div className="p-8 font-serif italic text-slate-400">Loading initial data...</div>;
     }
     // --- 1. OVERALL LIFETIME STATS ---
     const overall = lifetimeStats;
 
     // --- 2. PERIOD STATS (Cash Flow for the month) ---
-    const periodStats = calculateGlobalFinances(data.projects || [], data.payments || [], data.expenses || []);
+    const periodStats = calculateGlobalFinances(data?.projects || [], data?.payments || [], data?.expenses || []);
 
 
 
     // --- 3. BALANCE DUE FOR PICKUPS (families whose wedding is in the selected month and year) ---
     // The card and the breakdown table use the same rows, so the card always equals the table total.
-    const balanceRows = computeBalances(data, selectedMonth, selectedYear);
+    const balanceRows = data ? computeBalances(data, selectedMonth, selectedYear) : [];
 
     // helper amounts for toggles
     const revenueAmt = periodStats.totalIncome || 0;
@@ -94,6 +109,9 @@ export default function FinancesPage() {
                     <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Performance Metrics</span>
                 </div>
 
+                {lifetimeError ? (
+                    <LoadError message="Couldn't load the lifetime summary." onRetry={loadLifetime} />
+                ) : (
                 <div className="grid grid-cols-1 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-slate-100">
                     <div className="p-8 text-center">
                         <p className="text-[10px] font-bold uppercase tracking-widest text-blue-600 mb-2">Revenue</p>
@@ -112,6 +130,7 @@ export default function FinancesPage() {
                         <p style={{ color: deepNavy }} className="text-3xl font-light">{lifetimeStats?.totalOwed.toLocaleString()} NIS</p>
                     </div>
                 </div>
+                )}
             </div>
 
             {/* --- 2. BREAKDOWN CARD --- */}
@@ -143,6 +162,9 @@ export default function FinancesPage() {
                     <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Performance Metrics</span>
                 </div>
 
+                {periodError ? (
+                    <LoadError message="Couldn't load this report." onRetry={loadPeriod} />
+                ) : (
                 <div className="grid grid-cols-1 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-slate-100">
                     <div
                         className={`p-8 text-center transition-colors ${revenueAmt > 0 ? 'cursor-pointer hover:bg-slate-50/50' : 'cursor-not-allowed opacity-60'}`}
@@ -185,29 +207,30 @@ export default function FinancesPage() {
                         </div>
                     </div>
                 </div>
+                )}
                 </div>
             </div>
 
-            {/* Render selected breakdowns */}
-            {showBreakdown.revenue && (
+            {/* Render selected breakdowns (hidden while the report has failed) */}
+            {data && showBreakdown.revenue && (
                 <div className="mt-6 bg-white border border-blue-200 rounded-2xl p-6 shadow-sm">
                     <h4 className="font-semibold mb-4 text-blue-700">Revenue breakdown — {reportTitle}</h4>
                     <BreakdownTable rows={computeBreakdown(data, 'revenue')} copiedItems={copiedItems} onCopy={(text,id)=>copyText(text,`${id}-phone`,setCopiedItems)} />
                 </div>
             )}
-            {showBreakdown.expenses && (
+            {data && showBreakdown.expenses && (
                 <div className="mt-6 bg-white border border-rose-200 rounded-2xl p-6 shadow-sm">
                     <h4 className="font-semibold mb-4 text-rose-700">Expenses breakdown — {reportTitle}</h4>
                     <BreakdownTable rows={computeBreakdown(data, 'expenses')} copiedItems={copiedItems} onCopy={(text,id)=>copyText(text,id,setCopiedItems)} />
                 </div>
             )}
-            {showBreakdown.profit && (
+            {data && showBreakdown.profit && (
                 <div className="mt-6 bg-white border border-emerald-200 rounded-2xl p-6 shadow-sm">
                     <h4 className="font-semibold mb-4 text-emerald-700">Profit breakdown — {reportTitle}</h4>
                     <BreakdownTable rows={computeBreakdown(data, 'profit')} copiedItems={copiedItems} onCopy={(text,id)=>copyText(text,id,setCopiedItems)} />
                 </div>
             )}
-            {showBreakdown.balances && (
+            {data && showBreakdown.balances && (
                 <div className="mt-6 bg-white border border-orange-200 rounded-2xl p-6 shadow-sm">
                     <h4 className="font-semibold mb-4 text-orange-700">Balances breakdown — {reportTitle}</h4>
                     <BreakdownTable
@@ -224,7 +247,7 @@ export default function FinancesPage() {
             <hr className="border-slate-100 my-8" />
 
             {/* --- 1. OVERDUE RED FLAGS --- */}
-            {data.redFlags?.length > 0 && (
+            {data?.redFlags?.length > 0 && (
                 <div className="space-y-4">
                     <div className="bg-white border border-rose-100 rounded-[2rem] overflow-hidden shadow-sm">
                         {/* Title Header inside the box */}
@@ -243,7 +266,7 @@ export default function FinancesPage() {
             )}
 
             {/* --- 3. GENERAL OWED LIST --- */}
-            {data.generalOwed?.length > 0 && (
+            {data?.generalOwed?.length > 0 && (
                 <div className="space-y-4">
                     <div className="bg-white border border-orange-100 rounded-[2rem] overflow-hidden shadow-sm">
                         {/* Title Header moved INSIDE the box */}
@@ -316,6 +339,18 @@ function BalanceTable({ clients, variant, copiedItems, onCopy }: { clients: any[
                 })}
             </tbody>
         </table>
+    );
+}
+
+// Shown inside a card when its request fails, in place of the numbers
+function LoadError({ message, onRetry }: { message: string, onRetry: () => void }) {
+    return (
+        <div role="alert" className="p-8 text-center space-y-3">
+            <p className="font-serif italic text-slate-500">{message}</p>
+            <button onClick={onRetry} className="text-xs font-bold uppercase tracking-widest text-blue-600 underline">
+                Try again
+            </button>
+        </div>
     );
 }
 
