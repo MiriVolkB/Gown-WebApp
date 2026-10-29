@@ -8,6 +8,9 @@ const months = [
     "January", "February", "March", "April", "May", "June",
     "July", "August", "September", "October", "November", "December"
 ];
+// On phones each total is a single row (label left, amount right); from md up it is a centred column.
+const statCell = "p-4 md:p-8 grid grid-cols-[1fr_auto] items-center gap-x-4 md:block md:text-center";
+const statAmount = "row-span-2 text-2xl md:text-3xl font-light whitespace-nowrap";
 
 export default function FinancesPage() {
     const [selectedMonth, setSelectedMonth] = useState<number | "all">(new Date().getMonth() + 1);
@@ -79,37 +82,37 @@ export default function FinancesPage() {
 
 
     return (
-        <div className="p-10 max-w-5xl mx-auto space-y-12">
+        <div className="p-4 md:p-10 max-w-5xl mx-auto space-y-8 md:space-y-12">
             {/* --- ELEGANT HEADER --- */}
             <header className="text-center space-y-2">
-                <h1 style={{ color: deepNavy, fontFamily: 'serif' }} className="text-4xl">
+                <h1 style={{ color: deepNavy, fontFamily: 'serif' }} className="text-3xl md:text-4xl">
                     Financial Statement
                 </h1>
             </header>
 
             {/* --- 2.total card --- */}
             <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-                <div className="bg-slate-50/50 px-8 py-4 border-b border-slate-100 flex justify-between items-center">
+                <div className="bg-slate-50/50 px-4 md:px-8 py-4 border-b border-slate-100 flex flex-wrap gap-x-4 gap-y-1 justify-between items-center">
                     <h3 style={{ color: deepNavy, fontFamily: 'serif' }} className="text-xl">Lifetime Summary (Overall)</h3>
                     <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Performance Metrics</span>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-slate-100">
-                    <div className="p-8 text-center">
+                    <div className={statCell}>
                         <p className="text-[10px] font-bold uppercase tracking-widest text-blue-600 mb-2">Revenue</p>
-                        <p style={{ color: deepNavy }} className="text-3xl font-light">{lifetimeStats?.totalIncome.toLocaleString()} NIS</p>
+                        <p style={{ color: deepNavy }} className={statAmount}>{lifetimeStats?.totalIncome.toLocaleString()} NIS</p>
                     </div>
-                    <div className="p-8 text-center">
+                    <div className={statCell}>
                         <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-600 mb-2">Profit</p>
-                        <p style={{ color: deepNavy }} className="text-3xl font-light">{lifetimeStats?.netProfit.toLocaleString()} NIS</p>
+                        <p style={{ color: deepNavy }} className={statAmount}>{lifetimeStats?.netProfit.toLocaleString()} NIS</p>
                     </div>
-                    <div className="p-8 text-center">
+                    <div className={statCell}>
                         <p className="text-[10px] font-bold uppercase tracking-widest text-rose-500 mb-2">Expenses</p>
-                        <p style={{ color: deepNavy }} className="text-3xl font-light">{lifetimeStats?.totalInternalExpenses.toLocaleString()} NIS</p>
+                        <p style={{ color: deepNavy }} className={statAmount}>{lifetimeStats?.totalInternalExpenses.toLocaleString()} NIS</p>
                     </div>
-                    <div className="p-8 text-center bg-slate-50/20">
+                    <div className={`${statCell} bg-slate-50/20`}>
                         <p className="text-[10px] font-bold uppercase tracking-widest text-orange-600 mb-2">Balances</p>
-                        <p style={{ color: deepNavy }} className="text-3xl font-light">{lifetimeStats?.totalOwed.toLocaleString()} NIS</p>
+                        <p style={{ color: deepNavy }} className={statAmount}>{lifetimeStats?.totalOwed.toLocaleString()} NIS</p>
                     </div>
                 </div>
             </div>
@@ -138,49 +141,49 @@ export default function FinancesPage() {
                 </div>
                 {/* The rest of the content dims when loading, but stays on screen */}
         <div className={`transition-opacity duration-300 ${loading ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
-                <div className="bg-slate-50/50 px-8 py-4 border-b border-slate-100 flex justify-between items-center">
+                <div className="bg-slate-50/50 px-4 md:px-8 py-4 border-b border-slate-100 flex flex-wrap gap-x-4 gap-y-1 justify-between items-center">
                     <h3 style={{ color: deepNavy, fontFamily: 'serif' }} className="text-xl">{reportTitle}</h3>
                     <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Performance Metrics</span>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-slate-100">
                     <div
-                        className={`p-8 text-center transition-colors ${revenueAmt > 0 ? 'cursor-pointer hover:bg-slate-50/50' : 'cursor-not-allowed opacity-60'}`}
+                        className={`${statCell} transition-colors ${revenueAmt > 0 ? 'cursor-pointer hover:bg-slate-50/50' : 'cursor-not-allowed opacity-60'}`}
                         onClick={() => revenueAmt > 0 && setShowBreakdown(s => ({ ...s, revenue: !s.revenue }))}
                     >
                         <p className="text-[10px] font-bold uppercase tracking-widest text-blue-600 mb-2">Revenue</p>
-                        <p style={{ color: deepNavy }} className="text-3xl font-light">{revenueAmt.toLocaleString()} NIS</p>
-                        <div className="mt-2 text-xs text-blue-600 underline">
+                        <p style={{ color: deepNavy }} className={statAmount}>{revenueAmt.toLocaleString()} NIS</p>
+                        <div className="mt-1 md:mt-2 text-xs text-blue-600 underline">
                             {showBreakdown.revenue ? 'Hide breakdown' : 'See breakdown'}
                         </div>
                     </div>
                     <div
-                        className={`p-8 text-center transition-colors ${profitAmt > 0 ? 'cursor-pointer hover:bg-slate-50/50' : 'cursor-not-allowed opacity-60'}`}
+                        className={`${statCell} transition-colors ${profitAmt > 0 ? 'cursor-pointer hover:bg-slate-50/50' : 'cursor-not-allowed opacity-60'}`}
                         onClick={() => profitAmt > 0 && setShowBreakdown(s => ({ ...s, profit: !s.profit }))}
                     >
                         <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-600 mb-2">Profit</p>
-                        <p style={{ color: deepNavy }} className="text-3xl font-light">{profitAmt.toLocaleString()} NIS</p>
-                        <div className="mt-2 text-xs text-emerald-600 underline">
+                        <p style={{ color: deepNavy }} className={statAmount}>{profitAmt.toLocaleString()} NIS</p>
+                        <div className="mt-1 md:mt-2 text-xs text-emerald-600 underline">
                             {showBreakdown.profit ? 'Hide breakdown' : 'See breakdown'}
                         </div>
                     </div>
                     <div
-                        className={`p-8 text-center transition-colors ${expensesAmt > 0 ? 'cursor-pointer hover:bg-slate-50/50' : 'cursor-not-allowed opacity-60'}`}
+                        className={`${statCell} transition-colors ${expensesAmt > 0 ? 'cursor-pointer hover:bg-slate-50/50' : 'cursor-not-allowed opacity-60'}`}
                         onClick={() => expensesAmt > 0 && setShowBreakdown(s => ({ ...s, expenses: !s.expenses }))}
                     >
                         <p className="text-[10px] font-bold uppercase tracking-widest text-rose-500 mb-2">Expenses</p>
-                        <p style={{ color: deepNavy }} className="text-3xl font-light">{expensesAmt.toLocaleString()} NIS</p>
-                        <div className="mt-2 text-xs text-rose-500 underline">
+                        <p style={{ color: deepNavy }} className={statAmount}>{expensesAmt.toLocaleString()} NIS</p>
+                        <div className="mt-1 md:mt-2 text-xs text-rose-500 underline">
                             {showBreakdown.expenses ? 'Hide breakdown' : 'See breakdown'}
                         </div>
                     </div>
                     <div
-                        className={`p-8 text-center bg-slate-50/20 transition-colors ${balancesAmt > 0 ? 'cursor-pointer hover:bg-slate-50/50' : 'cursor-not-allowed opacity-60'}`}
+                        className={`${statCell} bg-slate-50/20 transition-colors ${balancesAmt > 0 ? 'cursor-pointer hover:bg-slate-50/50' : 'cursor-not-allowed opacity-60'}`}
                         onClick={() => balancesAmt > 0 && setShowBreakdown(s => ({ ...s, balances: !s.balances }))}
                     >
                         <p className="text-[10px] font-bold uppercase tracking-widest text-orange-600 mb-2">Balances</p>
-                        <p style={{ color: deepNavy }} className="text-3xl font-light">{balancesAmt.toLocaleString()} NIS</p>
-                        <div className="mt-2 text-xs text-orange-600 underline">
+                        <p style={{ color: deepNavy }} className={statAmount}>{balancesAmt.toLocaleString()} NIS</p>
+                        <div className="mt-1 md:mt-2 text-xs text-orange-600 underline">
                             {showBreakdown.balances ? 'Hide breakdown' : 'See breakdown'}
                         </div>
                     </div>
@@ -190,25 +193,25 @@ export default function FinancesPage() {
 
             {/* Render selected breakdowns */}
             {showBreakdown.revenue && (
-                <div className="mt-6 bg-white border border-blue-200 rounded-2xl p-6 shadow-sm">
+                <div className="mt-6 bg-white border border-blue-200 rounded-2xl p-4 md:p-6 shadow-sm">
                     <h4 className="font-semibold mb-4 text-blue-700">Revenue breakdown — {reportTitle}</h4>
                     <BreakdownTable rows={computeBreakdown(data, 'revenue')} copiedItems={copiedItems} onCopy={(text,id)=>copyText(text,`${id}-phone`,setCopiedItems)} />
                 </div>
             )}
             {showBreakdown.expenses && (
-                <div className="mt-6 bg-white border border-rose-200 rounded-2xl p-6 shadow-sm">
+                <div className="mt-6 bg-white border border-rose-200 rounded-2xl p-4 md:p-6 shadow-sm">
                     <h4 className="font-semibold mb-4 text-rose-700">Expenses breakdown — {reportTitle}</h4>
                     <BreakdownTable rows={computeBreakdown(data, 'expenses')} copiedItems={copiedItems} onCopy={(text,id)=>copyText(text,id,setCopiedItems)} />
                 </div>
             )}
             {showBreakdown.profit && (
-                <div className="mt-6 bg-white border border-emerald-200 rounded-2xl p-6 shadow-sm">
+                <div className="mt-6 bg-white border border-emerald-200 rounded-2xl p-4 md:p-6 shadow-sm">
                     <h4 className="font-semibold mb-4 text-emerald-700">Profit breakdown — {reportTitle}</h4>
                     <BreakdownTable rows={computeBreakdown(data, 'profit')} copiedItems={copiedItems} onCopy={(text,id)=>copyText(text,id,setCopiedItems)} />
                 </div>
             )}
             {showBreakdown.balances && (
-                <div className="mt-6 bg-white border border-orange-200 rounded-2xl p-6 shadow-sm">
+                <div className="mt-6 bg-white border border-orange-200 rounded-2xl p-4 md:p-6 shadow-sm">
                     <h4 className="font-semibold mb-4 text-orange-700">Balances breakdown — {reportTitle}</h4>
                     <BreakdownTable
                         rows={balanceRows}
@@ -270,9 +273,9 @@ function BalanceTable({ clients, variant, copiedItems, onCopy }: { clients: any[
         <table className="w-full text-left">
             <thead className={isUrgent ? "bg-rose-50/30" : "bg-orange-50/50"}>
                 <tr className={`text-[10px] font-bold uppercase tracking-[0.2em] ${isUrgent ? 'text-rose-400' : 'text-orange-400'}`}>
-                    <th className="px-8 py-4">Client</th>
-                    <th className="px-8 py-4 text-center">Wedding Date</th>
-                    <th className="px-8 py-4 text-right">Balance</th>
+                    <th className="px-3 md:px-8 py-4">Client</th>
+                    <th className="hidden md:table-cell px-8 py-4 text-center">Wedding Date</th>
+                    <th className="px-3 md:px-8 py-4 text-right">Balance</th>
                 </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
@@ -281,11 +284,13 @@ function BalanceTable({ clients, variant, copiedItems, onCopy }: { clients: any[
                         sum + p.price + (p.expenses?.reduce((s: number, e: any) => s + e.amount, 0) || 0), 0);
                     const totalPaid = client.payments.reduce((sum: number, p: any) => sum + p.amount, 0);
                     const balance = totalBill - totalPaid;
+                    const weddingDate = client.WeddingDate ? new Date(client.WeddingDate).toLocaleDateString("en-GB") : "—";
+                    const dateColor = isUrgent ? 'text-rose-600 font-bold' : 'text-orange-600';
 
                     return (
                         <tr key={client.id} className="hover:bg-slate-50/50 transition-colors">
-                            <td className="px-8 py-5">
-                                <p className="font-bold text-slate-900">{client.name}</p>
+                            <td className="px-3 md:px-8 py-4 md:py-5">
+                                <p dir="auto" className="font-bold text-slate-900">{client.name}</p>
                                 <div className="flex items-center gap-2 text-xs text-slate-400 font-mono">
                                     <span>{client.phone}</span>
                                     {onCopy && (
@@ -304,11 +309,13 @@ function BalanceTable({ clients, variant, copiedItems, onCopy }: { clients: any[
                                         <span className="text-[10px] text-emerald-600">copied</span>
                                     )}
                                 </div>
+                                {/* On phones the Wedding Date column is hidden, so show the date here */}
+                                <p className={`md:hidden text-xs font-medium ${dateColor}`}>{weddingDate}</p>
                             </td>
-                            <td className={`px-8 py-5 text-sm text-center font-medium ${isUrgent ? 'text-rose-600 font-bold' : 'text-orange-600'}`}>
-                                {client.WeddingDate ? new Date(client.WeddingDate).toLocaleDateString("en-GB") : "—"}
+                            <td className={`hidden md:table-cell px-8 py-5 text-sm text-center font-medium ${dateColor}`}>
+                                {weddingDate}
                             </td>
-                            <td className={`px-8 py-5 text-right text-2xl font-light ${isUrgent ? 'text-rose-700 font-bold' : 'text-orange-700'}`}>
+                            <td className={`px-3 md:px-8 py-4 md:py-5 text-right text-lg md:text-2xl font-light whitespace-nowrap ${isUrgent ? 'text-rose-700 font-bold' : 'text-orange-700'}`}>
                                 {balance.toLocaleString()} NIS
                             </td>
                         </tr>
@@ -437,18 +444,25 @@ function BreakdownTable({ rows, copiedItems, onCopy }: { rows: { id: string; nam
         <table className="w-full text-left">
             <thead className="bg-slate-50/50">
                 <tr className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
-                    <th className="px-6 py-3">Name</th>
-                    <th className="px-6 py-3">Phone</th>
-                    <th className="px-6 py-3">Email</th>
-                    <th className="px-6 py-3">Wedding Date</th>
-                    <th className="px-6 py-3 text-right">Amount</th>
+                    <th className="px-3 md:px-6 py-3">Name</th>
+                    <th className="hidden md:table-cell px-6 py-3">Phone</th>
+                    <th className="hidden md:table-cell px-6 py-3">Email</th>
+                    <th className="hidden md:table-cell px-6 py-3">Wedding Date</th>
+                    <th className="px-3 md:px-6 py-3 text-right">Amount</th>
                 </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
                 {rows.map(r => (
                     <tr key={r.id} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="px-6 py-4 font-medium text-slate-900">{r.name}</td>
-                        <td className="px-6 py-4 text-sm text-slate-500">
+                        <td className="px-3 md:px-6 py-4">
+                            <p dir="auto" className="font-medium text-slate-900">{r.name}</p>
+                            {/* On phones the Phone and Wedding Date columns are hidden, so show them here */}
+                            <p className="md:hidden text-xs text-slate-400">
+                                <span className="font-mono">{r.phone}</span>
+                                {r.WeddingDate && <> · {new Date(r.WeddingDate).toLocaleDateString("en-GB")}</>}
+                            </p>
+                        </td>
+                        <td className="hidden md:table-cell px-6 py-4 text-sm text-slate-500">
                             <div className="flex items-center gap-2">
                                 <span className="font-mono text-xs text-slate-400">{r.phone}</span>
                                 {onCopy && (
@@ -462,7 +476,7 @@ function BreakdownTable({ rows, copiedItems, onCopy }: { rows: { id: string; nam
                                 {copiedItems && copiedItems[`${r.id}-phone`] && <span className="text-[10px] text-emerald-600">copied</span>}
                             </div>
                         </td>
-                        <td className="px-6 py-4 text-sm text-slate-500">
+                        <td className="hidden md:table-cell px-6 py-4 text-sm text-slate-500">
                             <div className="flex items-center gap-2">
                                 <span className="font-mono text-xs text-slate-400">{r.email || '—'}</span>
                                 {onCopy && r.email && (
@@ -476,10 +490,10 @@ function BreakdownTable({ rows, copiedItems, onCopy }: { rows: { id: string; nam
                                 {copiedItems && copiedItems[`${r.id}-email`] && <span className="text-[10px] text-emerald-600">copied</span>}
                             </div>
                         </td>
-                        <td className="px-6 py-4 text-sm text-slate-500">
+                        <td className="hidden md:table-cell px-6 py-4 text-sm text-slate-500">
                             {r.WeddingDate ? new Date(r.WeddingDate).toLocaleDateString("en-GB") : "—"}
                         </td>
-                        <td className="px-6 py-4 text-right font-light text-2xl text-slate-700">{(r.amount || 0).toLocaleString()} NIS</td>
+                        <td className="px-3 md:px-6 py-4 text-right font-light text-lg md:text-2xl text-slate-700 whitespace-nowrap">{(r.amount || 0).toLocaleString()} NIS</td>
                     </tr>
                 ))}
             </tbody>
